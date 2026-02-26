@@ -31,6 +31,9 @@ public class Initalize implements EventProcessor{
 		// User 1 makes a change
 		CommandDemo.executeDemo(out); // this executes the command demo, comment out this when implementing your solution
 		//Loaders_2024_Check.test(out);
+
+		gameState.placeInitialUnits(out);
+
 	}
 
 }
