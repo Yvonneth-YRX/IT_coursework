@@ -20,8 +20,8 @@ public class OtherClicked implements EventProcessor{
 
 	@Override
 	public void processEvent(ActorRef out, GameState gameState, JsonNode message) {
-		
-		
+		commands.BasicCommands.addPlayer1Notification(out, "otherclicked", 2);
+		System.out.println("[EVENT] otherClicked");
 	}
 
 }
