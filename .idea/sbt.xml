@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaSbtSettings">
-    <option name="customVMPath" value="$PROJECT_DIR$/../../../../../../Tool/sbt" />
+    <option name="customVMPath" value="C:/sbt-1.12.4" />
   </component>
 </project>

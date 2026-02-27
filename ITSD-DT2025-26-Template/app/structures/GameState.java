@@ -19,6 +19,9 @@ import structures.basic.Tile;
 import akka.actor.ActorRef;
 import commands.BasicCommands;
 
+import java.util.List;
+import java.util.ArrayList;
+import structures.basic.Card;
 /**
  * Holds the ongoing game state (server-side).
  * Created in GameActor and shared across event processors.
@@ -216,6 +219,29 @@ public class GameState {
 		}
 	}
 
+}
+
+    private List<Card> player1Deck = new ArrayList<>();
+    private List<Card> player2Deck = new ArrayList<>();
+
+    private List<Card> player1Hand = new ArrayList<>();
+    private List<Card> player2Hand = new ArrayList<>();
+
+    public List<Card> getPlayer1Deck() {
+        return player1Deck;
+    }
+
+    public List<Card> getPlayer2Deck() {
+        return player2Deck;
+    }
+
+    public List<Card> getPlayer1Hand() {
+        return player1Hand;
+    }
+
+    public List<Card> getPlayer2Hand() {
+        return player2Hand;
+    }
 }
 
 	public void updateHighlightsByCoord(
