@@ -3,6 +3,9 @@ package actors;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
+import java.util.List;
+import java.util.ArrayList;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,7 +25,11 @@ import events.UnitStopped;
 import play.libs.Json;
 import structures.GameState;
 import utils.ImageListForPreLoad;
-import play.libs.Json;
+import utils.BasicObjectBuilders;
+import utils.StaticConfFiles;
+import commands.BasicCommands;
+
+import structures.basic.Card;
 
 /**
  * The game actor is an Akka Actor that receives events from the user front-end UI (e.g. when 
@@ -118,4 +125,81 @@ public class GameActor extends AbstractActor {
 		returnMessage.put("error", errorText);
 		out.tell(returnMessage, out);
 	}
+
+    // Initialize the card piles of both sides.
+    public static void initializeDecks(GameState gameState) {
+        gameState.getPlayer1Deck().clear();
+        gameState.getPlayer2Deck().clear();
+
+        // ===== Human player =====
+        for (String cardPath : StaticConfFiles.humanCards) {
+
+            for (int i = 0; i < 2; i++) {   // two counts of each kind
+
+                Card card = BasicObjectBuilders.loadCard(
+                        cardPath,
+                        1,
+                        Card.class
+                );
+
+                gameState.getPlayer1Deck().add(card);
+            }
+        }
+
+        // ===== AI =====
+        for (String cardPath : StaticConfFiles.aiCards) {
+
+            for (int i = 0; i < 2; i++) {
+
+                Card card = BasicObjectBuilders.loadCard(
+                        cardPath,
+                        2,
+                        Card.class
+                );
+
+                gameState.getPlayer2Deck().add(card);
+            }
+        }
+
+        // random
+        Collections.shuffle(gameState.getPlayer1Deck());
+        Collections.shuffle(gameState.getPlayer2Deck());
+    }
+
+    // General card-drawing method
+    private static void drawCard(ActorRef out, GameState gameState, int player) {
+        List<Card> deck;
+        List<Card> hand;
+
+        if (player == 1) {
+            deck = gameState.getPlayer1Deck();
+            hand = gameState.getPlayer1Hand();
+        } else {
+            deck = gameState.getPlayer2Deck();
+            hand = gameState.getPlayer2Hand();
+        }
+
+        if (deck.isEmpty()) return;
+
+        Card drawnCard = deck.remove(0);
+
+        hand.add(drawnCard);
+        int handPosition = hand.size() - 1;
+
+        // 0 left  1 right
+        BasicCommands.drawCard(out, drawnCard, handPosition, player - 1);
+    }
+
+    public static void drawStartingHand(ActorRef out, GameState gameState) {
+        // Human plyer
+        for (int i = 0; i < 3; i++) {
+            drawCard(out, gameState, 1);
+        }
+
+        // AI
+        for (int i = 0; i < 3; i++) {
+            drawCard(out, gameState, 2);
+        }
+    }
+
 }
