@@ -22,12 +22,18 @@ public class Initalize implements EventProcessor{
 
 	@Override
 	public void processEvent(ActorRef out, GameState gameState, JsonNode message) {
-		// hello this is a change
-		
+
 		gameState.gameInitalised = true;
-		
+
+		// 1) Initialize + draw the board (9x5)
+		gameState.initBoard(out);
+
+		// 2) Stop running the demo once you start implementing the real game
+		// CommandDemo.executeDemo(out); // <-- keep this commented out
+		// Loaders_2024_Check.test(out);
+
 		gameState.something = true;
-		
+
 		// User 1 makes a change
 		CommandDemo.executeDemo(out); // this executes the command demo, comment out this when implementing your solution
 		//Loaders_2024_Check.test(out);

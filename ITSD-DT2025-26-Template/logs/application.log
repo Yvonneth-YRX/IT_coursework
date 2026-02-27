@@ -1,0 +1,344 @@
+2024-01-26 19:55:55,014 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-6 - Slf4jLogger started
+2024-01-26 19:55:55,083 [INFO] from org.hibernate.validator.internal.util.Version in play-dev-mode-akka.actor.default-dispatcher-6 - HV000001: Hibernate Validator 6.1.0.Final
+2024-01-26 19:55:55,184 [INFO] from play.api.http.EnabledFilters in play-dev-mode-akka.actor.default-dispatcher-6 - Enabled Filters (see <https://www.playframework.com/documentation/latest/Filters>):
+
+    play.filters.csrf.CSRFFilter
+    play.filters.headers.SecurityHeadersFilter
+    play.filters.hosts.AllowedHostsFilter
+    play.filters.csrf.CSRFFilter
+
+2024-01-26 19:55:55,187 [INFO] from play.api.Play in play-dev-mode-akka.actor.default-dispatcher-6 - Application started (Dev) (no global state)
+2024-01-26 20:01:18,627 [INFO] from play.api.internal.libs.concurrent.CoordinatedShutdownSupport in pool-10-thread-15 - Starting synchronous coordinated shutdown with ServerStoppedReason reason and 35000 milliseconds timeout
+2024-01-26 20:01:18,628 [INFO] from play.core.server.AkkaHttpServer in pool-10-thread-15 - Stopping Akka HTTP server...
+2024-01-26 20:01:18,631 [INFO] from play.core.server.AkkaHttpServer in play-dev-mode-akka.actor.internal-dispatcher-5 - Terminating server binding for /0:0:0:0:0:0:0:0:9000
+2024-01-26 20:01:18,657 [INFO] from play.core.server.AkkaHttpServer in play-dev-mode-akka.actor.internal-dispatcher-5 - Running provided shutdown stop hooks
+2026-02-25 00:59:14,872 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-25 00:59:15,053 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-25 00:59:15,225 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-25 00:59:15,385 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-25 01:06:12,280 [INFO] from play.api.internal.libs.concurrent.CoordinatedShutdownSupport in Thread-0 - Starting synchronous coordinated shutdown with ServerStoppedReason reason and 2147508000 milliseconds timeout
+2026-02-25 01:06:12,282 [INFO] from play.core.server.AkkaHttpServer in Thread-0 - Stopping Akka HTTP server...
+2026-02-25 01:06:12,284 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-35 - Terminating server binding for /0:0:0:0:0:0:0:0:9000
+2026-02-25 01:06:12,290 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-3 - Running provided shutdown stop hooks
+2026-02-27 07:03:04,269 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-27 07:03:04,450 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 07:03:04,615 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 07:56:28,574 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-27 07:56:28,751 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 07:56:28,917 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 07:56:29,075 [ERROR] from akka.io.TcpListener in application-akka.actor.default-dispatcher-7 - Bind failed for TCP channel on endpoint [/0.0.0.0:9000]
+java.net.BindException: [/0.0.0.0:9000] Address already in use
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:459)
+	at java.base/sun.nio.ch.Net.bind(Net.java:448)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:227)
+	at java.base/sun.nio.ch.ServerSocketAdaptor.bind(ServerSocketAdaptor.java:80)
+	at akka.io.TcpListener.liftedTree1$1(TcpListener.scala:59)
+	at akka.io.TcpListener.<init>(TcpListener.scala:56)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
+	at akka.util.Reflect$.instantiate(Reflect.scala:69)
+	at akka.actor.ArgsReflectConstructor.produce(IndirectActorProducer.scala:100)
+	at akka.actor.Props.newActor(Props.scala:226)
+	at akka.actor.ActorCell.newActor(ActorCell.scala:609)
+	at akka.actor.ActorCell.create(ActorCell.scala:635)
+	at akka.actor.ActorCell.invokeAll$1(ActorCell.scala:509)
+	at akka.actor.ActorCell.systemInvoke(ActorCell.scala:531)
+	at akka.dispatch.Mailbox.processAllSystemMessages(Mailbox.scala:294)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:229)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-27 08:00:46,432 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-27 08:00:46,610 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 08:00:46,780 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 08:00:46,944 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-27 08:03:05,229 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-27 08:03:05,419 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 08:03:05,584 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 08:04:04,843 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-5 - Slf4jLogger started
+2026-02-27 08:04:05,018 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 08:04:05,181 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 08:04:05,337 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-27 08:07:42,524 [INFO] from play.api.internal.libs.concurrent.CoordinatedShutdownSupport in Thread-0 - Starting synchronous coordinated shutdown with ServerStoppedReason reason and 2147508000 milliseconds timeout
+2026-02-27 08:07:42,531 [INFO] from play.core.server.AkkaHttpServer in Thread-0 - Stopping Akka HTTP server...
+2026-02-27 08:07:42,541 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-16 - Terminating server binding for /0:0:0:0:0:0:0:0:9000
+2026-02-27 08:07:42,590 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-16 - Running provided shutdown stop hooks
+2026-02-27 22:07:12,466 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-5 - Slf4jLogger started
+2026-02-27 22:07:12,636 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 22:07:12,804 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 22:07:12,949 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-27 23:26:49,859 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-5 - Slf4jLogger started
+2026-02-27 23:26:50,028 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 23:26:50,187 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 23:30:52,394 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-27 23:30:52,555 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 23:30:52,722 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 23:30:52,867 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-27 23:55:55,313 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-6 - Slf4jLogger started
+2026-02-27 23:55:55,957 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 23:55:56,344 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-27 23:55:56,593 [ERROR] from akka.io.TcpListener in application-akka.actor.default-dispatcher-8 - Bind failed for TCP channel on endpoint [/0.0.0.0:9000]
+java.net.BindException: [/0.0.0.0:9000] Address already in use
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:459)
+	at java.base/sun.nio.ch.Net.bind(Net.java:448)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:227)
+	at java.base/sun.nio.ch.ServerSocketAdaptor.bind(ServerSocketAdaptor.java:80)
+	at akka.io.TcpListener.liftedTree1$1(TcpListener.scala:59)
+	at akka.io.TcpListener.<init>(TcpListener.scala:56)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
+	at akka.util.Reflect$.instantiate(Reflect.scala:69)
+	at akka.actor.ArgsReflectConstructor.produce(IndirectActorProducer.scala:100)
+	at akka.actor.Props.newActor(Props.scala:226)
+	at akka.actor.ActorCell.newActor(ActorCell.scala:609)
+	at akka.actor.ActorCell.create(ActorCell.scala:635)
+	at akka.actor.ActorCell.invokeAll$1(ActorCell.scala:509)
+	at akka.actor.ActorCell.systemInvoke(ActorCell.scala:531)
+	at akka.dispatch.Mailbox.processAllSystemMessages(Mailbox.scala:294)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:229)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-27 23:56:23,617 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-27 23:56:23,792 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-27 23:56:23,953 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:01:18,400 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 00:01:18,583 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 00:01:18,744 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:03:50,526 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 00:03:50,698 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 00:03:50,860 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:03:51,001 [ERROR] from akka.io.TcpListener in application-akka.actor.default-dispatcher-7 - Bind failed for TCP channel on endpoint [/0.0.0.0:9000]
+java.net.BindException: [/0.0.0.0:9000] Address already in use
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:459)
+	at java.base/sun.nio.ch.Net.bind(Net.java:448)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:227)
+	at java.base/sun.nio.ch.ServerSocketAdaptor.bind(ServerSocketAdaptor.java:80)
+	at akka.io.TcpListener.liftedTree1$1(TcpListener.scala:59)
+	at akka.io.TcpListener.<init>(TcpListener.scala:56)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
+	at akka.util.Reflect$.instantiate(Reflect.scala:69)
+	at akka.actor.ArgsReflectConstructor.produce(IndirectActorProducer.scala:100)
+	at akka.actor.Props.newActor(Props.scala:226)
+	at akka.actor.ActorCell.newActor(ActorCell.scala:609)
+	at akka.actor.ActorCell.create(ActorCell.scala:635)
+	at akka.actor.ActorCell.invokeAll$1(ActorCell.scala:509)
+	at akka.actor.ActorCell.systemInvoke(ActorCell.scala:531)
+	at akka.dispatch.Mailbox.processAllSystemMessages(Mailbox.scala:294)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:229)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-28 00:22:20,366 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 00:22:20,555 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 00:22:20,722 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:22:20,862 [ERROR] from akka.io.TcpListener in application-akka.actor.default-dispatcher-7 - Bind failed for TCP channel on endpoint [/0.0.0.0:9000]
+java.net.BindException: [/0.0.0.0:9000] Address already in use
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:459)
+	at java.base/sun.nio.ch.Net.bind(Net.java:448)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:227)
+	at java.base/sun.nio.ch.ServerSocketAdaptor.bind(ServerSocketAdaptor.java:80)
+	at akka.io.TcpListener.liftedTree1$1(TcpListener.scala:59)
+	at akka.io.TcpListener.<init>(TcpListener.scala:56)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
+	at akka.util.Reflect$.instantiate(Reflect.scala:69)
+	at akka.actor.ArgsReflectConstructor.produce(IndirectActorProducer.scala:100)
+	at akka.actor.Props.newActor(Props.scala:226)
+	at akka.actor.ActorCell.newActor(ActorCell.scala:609)
+	at akka.actor.ActorCell.create(ActorCell.scala:635)
+	at akka.actor.ActorCell.invokeAll$1(ActorCell.scala:509)
+	at akka.actor.ActorCell.systemInvoke(ActorCell.scala:531)
+	at akka.dispatch.Mailbox.processAllSystemMessages(Mailbox.scala:294)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:229)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-28 00:28:41,874 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 00:28:42,043 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 00:28:42,203 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:28:42,346 [ERROR] from akka.io.TcpListener in application-akka.actor.default-dispatcher-7 - Bind failed for TCP channel on endpoint [/0.0.0.0:9000]
+java.net.BindException: [/0.0.0.0:9000] Address already in use
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:459)
+	at java.base/sun.nio.ch.Net.bind(Net.java:448)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:227)
+	at java.base/sun.nio.ch.ServerSocketAdaptor.bind(ServerSocketAdaptor.java:80)
+	at akka.io.TcpListener.liftedTree1$1(TcpListener.scala:59)
+	at akka.io.TcpListener.<init>(TcpListener.scala:56)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
+	at akka.util.Reflect$.instantiate(Reflect.scala:69)
+	at akka.actor.ArgsReflectConstructor.produce(IndirectActorProducer.scala:100)
+	at akka.actor.Props.newActor(Props.scala:226)
+	at akka.actor.ActorCell.newActor(ActorCell.scala:609)
+	at akka.actor.ActorCell.create(ActorCell.scala:635)
+	at akka.actor.ActorCell.invokeAll$1(ActorCell.scala:509)
+	at akka.actor.ActorCell.systemInvoke(ActorCell.scala:531)
+	at akka.dispatch.Mailbox.processAllSystemMessages(Mailbox.scala:294)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:229)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-28 00:44:38,435 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 00:44:38,620 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 00:44:38,796 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:45:47,546 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 00:45:47,720 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 00:45:47,897 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:54:23,541 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 00:54:23,715 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 00:54:23,874 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 00:54:24,018 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 01:16:52,648 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-5 - Slf4jLogger started
+2026-02-28 01:16:52,823 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 01:16:52,990 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 01:16:53,135 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 01:17:07,034 [ERROR] from akka.stream.impl.ActorRefSource in application-akka.actor.default-dispatcher-15 - Failing because buffer is full and overflowStrategy is: [Fail] in stream [actorRefSource]
+2026-02-28 01:17:07,042 [ERROR] from play.core.server.common.WebSocketFlowHandler in application-akka.actor.default-dispatcher-12 - WebSocket flow threw exception
+akka.stream.BufferOverflowException: Buffer overflow (max capacity was: 16)!
+	at akka.stream.impl.ActorRefSource$$anon$1.$anonfun$ref$1(ActorRefSource.scala:132)
+	at akka.stream.impl.ActorRefSource$$anon$1.$anonfun$ref$1$adapted(ActorRefSource.scala:56)
+	at akka.stream.stage.GraphStageLogic$StageActor.internalReceive(GraphStage.scala:243)
+	at akka.stream.stage.GraphStageLogic$StageActor.$anonfun$callback$1(GraphStage.scala:202)
+	at akka.stream.stage.GraphStageLogic$StageActor.$anonfun$callback$1$adapted(GraphStage.scala:202)
+	at akka.stream.impl.fusing.GraphInterpreter.runAsyncInput(GraphInterpreter.scala:466)
+	at akka.stream.impl.fusing.GraphInterpreterShell$AsyncInput.execute(ActorGraphInterpreter.scala:497)
+	at akka.stream.impl.fusing.GraphInterpreterShell.processEvent(ActorGraphInterpreter.scala:599)
+	at akka.stream.impl.fusing.ActorGraphInterpreter.akka$stream$impl$fusing$ActorGraphInterpreter$$processEvent(ActorGraphInterpreter.scala:768)
+	at akka.stream.impl.fusing.ActorGraphInterpreter$$anonfun$receive$1.applyOrElse(ActorGraphInterpreter.scala:783)
+	at akka.actor.Actor.aroundReceive(Actor.scala:534)
+	at akka.actor.Actor.aroundReceive$(Actor.scala:532)
+	at akka.stream.impl.fusing.ActorGraphInterpreter.aroundReceive(ActorGraphInterpreter.scala:690)
+	at akka.actor.ActorCell.receiveMessage(ActorCell.scala:573)
+	at akka.actor.ActorCell.invoke(ActorCell.scala:543)
+	at akka.dispatch.Mailbox.processMailbox(Mailbox.scala:269)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:230)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-28 01:17:32,947 [ERROR] from akka.stream.impl.ActorRefSource in application-akka.actor.default-dispatcher-13 - Failing because buffer is full and overflowStrategy is: [Fail] in stream [actorRefSource]
+2026-02-28 01:17:32,949 [ERROR] from play.core.server.common.WebSocketFlowHandler in application-akka.actor.default-dispatcher-16 - WebSocket flow threw exception
+akka.stream.BufferOverflowException: Buffer overflow (max capacity was: 16)!
+	at akka.stream.impl.ActorRefSource$$anon$1.$anonfun$ref$1(ActorRefSource.scala:132)
+	at akka.stream.impl.ActorRefSource$$anon$1.$anonfun$ref$1$adapted(ActorRefSource.scala:56)
+	at akka.stream.stage.GraphStageLogic$StageActor.internalReceive(GraphStage.scala:243)
+	at akka.stream.stage.GraphStageLogic$StageActor.$anonfun$callback$1(GraphStage.scala:202)
+	at akka.stream.stage.GraphStageLogic$StageActor.$anonfun$callback$1$adapted(GraphStage.scala:202)
+	at akka.stream.impl.fusing.GraphInterpreter.runAsyncInput(GraphInterpreter.scala:466)
+	at akka.stream.impl.fusing.GraphInterpreterShell$AsyncInput.execute(ActorGraphInterpreter.scala:497)
+	at akka.stream.impl.fusing.GraphInterpreterShell.processEvent(ActorGraphInterpreter.scala:599)
+	at akka.stream.impl.fusing.ActorGraphInterpreter.akka$stream$impl$fusing$ActorGraphInterpreter$$processEvent(ActorGraphInterpreter.scala:768)
+	at akka.stream.impl.fusing.ActorGraphInterpreter$$anonfun$receive$1.applyOrElse(ActorGraphInterpreter.scala:783)
+	at akka.actor.Actor.aroundReceive(Actor.scala:534)
+	at akka.actor.Actor.aroundReceive$(Actor.scala:532)
+	at akka.stream.impl.fusing.ActorGraphInterpreter.aroundReceive(ActorGraphInterpreter.scala:690)
+	at akka.actor.ActorCell.receiveMessage(ActorCell.scala:573)
+	at akka.actor.ActorCell.invoke(ActorCell.scala:543)
+	at akka.dispatch.Mailbox.processMailbox(Mailbox.scala:269)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:230)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-28 01:18:36,509 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 01:18:36,699 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 01:18:36,884 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 01:18:37,034 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 01:18:54,683 [ERROR] from akka.stream.impl.ActorRefSource in application-akka.actor.default-dispatcher-18 - Failing because buffer is full and overflowStrategy is: [Fail] in stream [actorRefSource]
+2026-02-28 01:18:54,694 [ERROR] from play.core.server.common.WebSocketFlowHandler in application-akka.actor.default-dispatcher-4 - WebSocket flow threw exception
+akka.stream.BufferOverflowException: Buffer overflow (max capacity was: 16)!
+	at akka.stream.impl.ActorRefSource$$anon$1.$anonfun$ref$1(ActorRefSource.scala:132)
+	at akka.stream.impl.ActorRefSource$$anon$1.$anonfun$ref$1$adapted(ActorRefSource.scala:56)
+	at akka.stream.stage.GraphStageLogic$StageActor.internalReceive(GraphStage.scala:243)
+	at akka.stream.stage.GraphStageLogic$StageActor.$anonfun$callback$1(GraphStage.scala:202)
+	at akka.stream.stage.GraphStageLogic$StageActor.$anonfun$callback$1$adapted(GraphStage.scala:202)
+	at akka.stream.impl.fusing.GraphInterpreter.runAsyncInput(GraphInterpreter.scala:466)
+	at akka.stream.impl.fusing.GraphInterpreterShell$AsyncInput.execute(ActorGraphInterpreter.scala:497)
+	at akka.stream.impl.fusing.GraphInterpreterShell.processEvent(ActorGraphInterpreter.scala:599)
+	at akka.stream.impl.fusing.ActorGraphInterpreter.akka$stream$impl$fusing$ActorGraphInterpreter$$processEvent(ActorGraphInterpreter.scala:768)
+	at akka.stream.impl.fusing.ActorGraphInterpreter$$anonfun$receive$1.applyOrElse(ActorGraphInterpreter.scala:783)
+	at akka.actor.Actor.aroundReceive(Actor.scala:534)
+	at akka.actor.Actor.aroundReceive$(Actor.scala:532)
+	at akka.stream.impl.fusing.ActorGraphInterpreter.aroundReceive(ActorGraphInterpreter.scala:690)
+	at akka.actor.ActorCell.receiveMessage(ActorCell.scala:573)
+	at akka.actor.ActorCell.invoke(ActorCell.scala:543)
+	at akka.dispatch.Mailbox.processMailbox(Mailbox.scala:269)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:230)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:242)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:290)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1020)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1656)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1594)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:183)
+2026-02-28 01:48:14,635 [INFO] from play.api.internal.libs.concurrent.CoordinatedShutdownSupport in Thread-0 - Starting synchronous coordinated shutdown with ServerStoppedReason reason and 2147508000 milliseconds timeout
+2026-02-28 01:48:14,638 [INFO] from play.core.server.AkkaHttpServer in Thread-0 - Stopping Akka HTTP server...
+2026-02-28 01:48:14,643 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-3 - Terminating server binding for /0:0:0:0:0:0:0:0:9000
+2026-02-28 01:48:14,661 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-19 - Running provided shutdown stop hooks
+2026-02-28 02:52:42,305 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 02:52:42,472 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 02:52:42,636 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 02:52:42,787 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 03:04:47,297 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 03:04:47,464 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 03:04:47,622 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 03:04:47,766 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 03:06:50,543 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-5 - Slf4jLogger started
+2026-02-28 03:06:50,711 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 03:06:50,871 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 03:06:51,015 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 03:12:59,084 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-5 - Slf4jLogger started
+2026-02-28 03:12:59,285 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 03:12:59,458 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 03:12:59,618 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 03:15:50,253 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-6 - Slf4jLogger started
+2026-02-28 03:15:50,434 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 03:15:50,607 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 03:15:50,760 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 04:04:42,623 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 04:04:42,788 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 04:04:42,948 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 04:04:43,094 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+2026-02-28 04:05:28,296 [INFO] from play.api.internal.libs.concurrent.CoordinatedShutdownSupport in Thread-0 - Starting synchronous coordinated shutdown with ServerStoppedReason reason and 2147508000 milliseconds timeout
+2026-02-28 04:05:28,299 [INFO] from play.core.server.AkkaHttpServer in Thread-0 - Stopping Akka HTTP server...
+2026-02-28 04:05:28,303 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-10 - Terminating server binding for /0:0:0:0:0:0:0:0:9000
+2026-02-28 04:05:28,313 [INFO] from play.core.server.AkkaHttpServer in application-akka.actor.internal-dispatcher-10 - Running provided shutdown stop hooks
+2026-02-28 04:10:02,580 [INFO] from akka.event.slf4j.Slf4jLogger in application-akka.actor.default-dispatcher-4 - Slf4jLogger started
+2026-02-28 04:10:02,747 [INFO] from org.hibernate.validator.internal.util.Version in main - HV000001: Hibernate Validator 6.1.0.Final
+2026-02-28 04:10:02,923 [INFO] from play.api.Play in main - Application started (Prod) (no global state)
+2026-02-28 04:10:03,098 [INFO] from play.core.server.AkkaHttpServer in main - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
