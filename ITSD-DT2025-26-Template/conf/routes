@@ -6,7 +6,7 @@
 GET     /game                           controllers.GameScreenController.index(request :Request)
 GET     /gamews                           controllers.GameScreenController.socket()
 
-# Map static resources from the /public folder to the /assets URL path
+# Map static resources from the /public folder to the /assets UR L path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
 
 ->          /webjars                webjars.Routes
