@@ -342,7 +342,6 @@ public class BasicCommands {
 			else out.tell(returnMessage, out);
 		} catch (Exception e) {
 			e.printStackTrace();
-            // 111
 		}
 	}
 	
