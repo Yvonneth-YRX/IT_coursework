@@ -7,14 +7,18 @@ import java.util.List;
 import akka.actor.ActorRef;
 import commands.BasicCommands;
 import structures.basic.Tile;
+import structures.basic.Player;
 import structures.board.BoardCell;
 import structures.board.BoardCell.Highlight;
 import utils.BasicObjectBuilders;
+import structures.basic.UnitAnimationType;
+import utils.BasicObjectBuilders;
+import utils.StaticConfFiles;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import structures.basic.Unit;
 
-
-import java.util.List;
-import java.util.ArrayList;
+import java.io.File;
 import structures.basic.Card;
 /**
  * Holds the ongoing game state (server-side).
@@ -48,6 +52,18 @@ public class GameState {
 	// Track last highlight state by coordinates (avoids Set/List identity issues)
 	private Highlight[][] lastHighlight = new Highlight[BOARD_WIDTH][BOARD_HEIGHT];
 
+	// ---- Player state ----
+	private Player player1 = new Player();  // 玩家1
+	private Player player2 = new Player();  // 玩家2 (AI)
+
+	public Player getPlayer1() { return player1; }
+	public Player getPlayer2() { return player2; }
+
+	private Unit player1Avatar;
+	private Unit player2Avatar;
+
+	public Unit getPlayer1Avatar() { return player1Avatar; }
+	public Unit getPlayer2Avatar() { return player2Avatar; }
 
 	/**
 	 * Build the board and draw to the front-end.
@@ -177,6 +193,47 @@ public class GameState {
 		return result;
 	}
 
+	/**
+	 * Place player characters and AI characters
+	 */
+	public void placeInitialUnits(ActorRef out) {
+		try {
+			int playerX = 1, playerY = 2;
+			int aiX = BOARD_WIDTH - 1 - playerX, aiY = playerY;
+
+			BoardCell playerCell = getCell(playerX, playerY);
+			BoardCell aiCell = getCell(aiX, aiY);
+			if (playerCell == null || aiCell == null) {
+				throw new IllegalStateException("Initial spawn cell is invalid.");
+			}
+
+			player1Avatar = BasicObjectBuilders.loadUnit(StaticConfFiles.humanAvatar, 1, Unit.class);
+			player2Avatar = BasicObjectBuilders.loadUnit(StaticConfFiles.aiAvatar, 2, Unit.class);
+
+			playerCell.trySetOccupant(player1Avatar);
+			aiCell.trySetOccupant(player2Avatar);
+
+			player1Avatar.setPositionByTile(playerCell.getTile());
+			player2Avatar.setPositionByTile(aiCell.getTile());
+
+			//
+			BasicCommands.drawUnit(out, player1Avatar, playerCell.getTile());
+			Thread.sleep(50);
+			BasicCommands.setUnitHealth(out, player1Avatar, player1Avatar.getHealth());
+			BasicCommands.setUnitAttack(out, player1Avatar, player1Avatar.getAttack());
+			Thread.sleep(50);
+
+			BasicCommands.drawUnit(out, player2Avatar, aiCell.getTile());
+			Thread.sleep(50);
+			BasicCommands.setUnitHealth(out, player2Avatar, player2Avatar.getHealth());
+			BasicCommands.setUnitAttack(out, player2Avatar, player2Avatar.getAttack());
+			Thread.sleep(50);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
     private List<Card> player1Deck = new ArrayList<>();
     private List<Card> player2Deck = new ArrayList<>();
 
@@ -198,7 +255,6 @@ public class GameState {
     public List<Card> getPlayer2Hand() {
         return player2Hand;
     }
-}
 
 	public void updateHighlightsByCoord(
 			ActorRef out,
