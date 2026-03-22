@@ -166,29 +166,30 @@ public class GameActor extends AbstractActor {
         Collections.shuffle(gameState.getPlayer2Deck());
     }
 
-    // General card-drawing method
-    private static void drawCard(ActorRef out, GameState gameState, int player) {
-        List<Card> deck;
-        List<Card> hand;
+	// General card-drawing method
+	public static void drawCard(ActorRef out, GameState gameState, int player) {
+		List<Card> deck;
+		List<Card> hand;
 
-        if (player == 1) {
-            deck = gameState.getPlayer1Deck();
-            hand = gameState.getPlayer1Hand();
-        } else {
-            deck = gameState.getPlayer2Deck();
-            hand = gameState.getPlayer2Hand();
-        }
+		if (player == 1) {
+			deck = gameState.getPlayer1Deck();
+			hand = gameState.getPlayer1Hand();
+		} else {
+			deck = gameState.getPlayer2Deck();
+			hand = gameState.getPlayer2Hand();
+		}
 
-        if (deck.isEmpty()) return;
+		if (deck.isEmpty()) return;
+		if (hand.size() >= 6) return; // hand cap
 
-        Card drawnCard = deck.remove(0);
+		Card drawnCard = deck.remove(0);
 
-        hand.add(drawnCard);
-        int handPosition = hand.size() - 1;
+		hand.add(drawnCard);
+		int handPosition = hand.size(); // 1-based for UI
 
-        // 0 left  1 right
-        BasicCommands.drawCard(out, drawnCard, handPosition, player - 1);
-    }
+		// mode: 0 left side, 1 right side
+		BasicCommands.drawCard(out, drawnCard, handPosition, player - 1);
+	}
 
     public static void drawStartingHand(ActorRef out, GameState gameState) {
         // Human plyer

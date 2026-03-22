@@ -17,11 +17,10 @@ import structures.TurnSystem;
  * @author Dr. Richard McCreadie
  *
  */
-public class EndTurnClicked implements EventProcessor{
+public class EndTurnClicked implements EventProcessor {
 
 	@Override
 	public void processEvent(ActorRef out, GameState gameState, JsonNode message) {
-        TurnSystem.endTurn(out, gameState);
+		TurnSystem.endTurn(out, gameState);
 	}
-
 }
