@@ -957,4 +957,31 @@ public class GameState {
 		stunnedUntilTurn.remove(unit.getId());
 		return true;
 	}
+
+	// ---------------------------------------------------------------------
+	// AI player
+	// ---------------------------------------------------------------------
+
+	public List<BoardCell> getSpellTargetCellsForAI(Card card) {
+		return getSpellTargetCells(card);
+	}
+
+	public boolean playCardForAI(ActorRef out, Card card, BoardCell targetCell) {
+		if (card == null) return false;
+
+		List<Card> hand = getCurrentPlayerHand();
+		int index = hand.indexOf(card);
+		if (index < 0) return false;
+
+		selectedCard = card;
+		selectedHandPosition = index + 1;
+
+		if (card.getIsCreature()) {
+			selectionMode = SelectionMode.CARD_SUMMON;
+			return summonCreatureCard(out, card, targetCell);
+		} else {
+			selectionMode = SelectionMode.CARD_SPELL;
+			return castSpellCard(out, card, targetCell);
+		}
+	}
 }
