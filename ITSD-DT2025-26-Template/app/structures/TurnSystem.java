@@ -23,15 +23,27 @@ public class TurnSystem {
 
         // reset all units of current player
         gameState.resetCurrentPlayerUnitsForNewTurn();
-//        gameState.clearSelection(out);
 
         if (gameState.getCurrentPlayer() == 1) {
             BasicCommands.setPlayer1Mana(out, player);
             BasicCommands.addPlayer1Notification(out, "Your Turn", 2);
-//            gameState.redrawPlayerHand(out, 1);
         } else {
             BasicCommands.setPlayer2Mana(out, player);
-//            gameState.redrawPlayerHand(out, 2);
+            BasicCommands.addPlayer1Notification(out, "AI Turn", 2);
+
+            // let AI act automatically
+            try {
+                Thread.sleep(300);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            AIController.takeTurn(out, gameState);
+
+            // after AI finishes, automatically end AI turn
+            if (!gameState.isGameOver() && gameState.getCurrentPlayer() == 2) {
+                endTurn(out, gameState);
+            }
         }
 
         System.out.println("Start Turn: Player " + gameState.getCurrentPlayer());
@@ -64,7 +76,7 @@ public class TurnSystem {
         // increase turn number
         gameState.increaseTurn();
 
-        System.out.println("[TURN] endTurn start, currentPlayer = " + gameState.getCurrentPlayer());
+        System.out.println("[TURN] switched to player = " + gameState.getCurrentPlayer());
 
         // draw 1 card for new current player
         GameActor.drawCard(out, gameState, gameState.getCurrentPlayer());
