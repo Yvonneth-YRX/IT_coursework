@@ -8,6 +8,7 @@ import demo.Loaders_2024_Check;
 import structures.GameState;
 import actors.GameActor;
 import commands.BasicCommands;
+import structures.TurnSystem;
 
 /**
  * Indicates that both the core game loop in the browser is starting, meaning
@@ -26,7 +27,6 @@ public class Initalize implements EventProcessor{
 	public void processEvent(ActorRef out, GameState gameState, JsonNode message) {
 
 		gameState.gameInitalised = true;
-        System.out.println("111111111111111111111111111111111111111111111111111");
 
 		gameState.something = true;
 
@@ -57,7 +57,7 @@ public class Initalize implements EventProcessor{
 //		CommandDemo.executeDemo(out); // this executes the command demo, comment out this when implementing your solution
 		//Loaders_2024_Check.test(out);
 
-
+        TurnSystem.startTurn(out, gameState);
 
 	}
 

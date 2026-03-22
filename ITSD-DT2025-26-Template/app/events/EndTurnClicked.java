@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import akka.actor.ActorRef;
 import structures.GameState;
+import structures.TurnSystem;
 
 /**
  * Indicates that the user has clicked an object on the game canvas, in this case
@@ -16,11 +17,10 @@ import structures.GameState;
  * @author Dr. Richard McCreadie
  *
  */
-public class EndTurnClicked implements EventProcessor{
+public class EndTurnClicked implements EventProcessor {
 
 	@Override
 	public void processEvent(ActorRef out, GameState gameState, JsonNode message) {
-		
+		TurnSystem.endTurn(out, gameState);
 	}
-
 }
