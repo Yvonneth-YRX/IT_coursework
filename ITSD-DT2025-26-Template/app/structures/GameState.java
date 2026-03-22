@@ -65,6 +65,50 @@ public class GameState {
 	public Unit getPlayer1Avatar() { return player1Avatar; }
 	public Unit getPlayer2Avatar() { return player2Avatar; }
 
+    // Turn system
+    private int currentPlayer = 1;
+    private int turnNumber = 1;
+
+    public int getCurrentPlayer() {
+        return currentPlayer;
+    }
+
+    public void increaseTurn() {
+        turnNumber = turnNumber + 1;
+    }
+
+    public void switchPlayer() {
+        if (currentPlayer == 1) {
+            currentPlayer = 2;
+        } else {
+            currentPlayer = 1;
+        }
+    }
+
+    public int getTurnNumber() {
+        return turnNumber;
+    }
+
+    public void nextTurn() {
+        turnNumber++;
+    }
+
+    public Player getCurrentPlayerObject() {
+        if (currentPlayer == 1) {
+            return player1;
+        } else {
+            return player2;
+        }
+    }
+
+    public Player getOpponentPlayerObject() {
+        if (currentPlayer == 1) {
+            return player2;
+        } else {
+            return player1;
+        }
+    }
+
 	/**
 	 * Build the board and draw to the front-end.
 	 * Safe to call multiple times (will only init once).
