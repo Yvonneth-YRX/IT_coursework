@@ -79,6 +79,11 @@ public class TileClicked implements EventProcessor {
 			Unit clickedUnit = clickedCell.getOccupant();
 
 			if (gameState.isOwnedByCurrentPlayer(clickedUnit)) {
+				if (selectedUnit != null && selectedUnit.getId() == clickedUnit.getId()) {
+					gameState.clearSelection(out);
+					return;
+				}
+
 				if (gameState.hasMovedThisTurn(clickedUnit) && gameState.hasAttackedThisTurn(clickedUnit)) {
 					BasicCommands.addPlayer1Notification(out, "This unit has finished its action", 2);
 					return;

@@ -59,6 +59,7 @@ public class GameState {
 
 	// ---- Unit ownership + turn flags ----
 	private final Map<Integer, Integer> unitOwners = new HashMap<>();
+	private final Map<Integer, String> unitCardNames = new HashMap<>();
 	private final Map<Integer, Boolean> movedThisTurn = new HashMap<>();
 	private final Map<Integer, Boolean> attackedThisTurn = new HashMap<>();
 	private final Map<Integer, Integer> stunnedUntilTurn = new HashMap<>();
@@ -267,8 +268,13 @@ public class GameState {
 	}
 
 	public void registerUnit(Unit unit, int owner) {
+		registerUnit(unit, owner, null);
+	}
+
+	public void registerUnit(Unit unit, int owner, String cardName) {
 		if (unit == null) return;
 		unitOwners.put(unit.getId(), owner);
+		unitCardNames.put(unit.getId(), normalizeName(cardName));
 		movedThisTurn.put(unit.getId(), false);
 		attackedThisTurn.put(unit.getId(), false);
 	}
@@ -276,6 +282,11 @@ public class GameState {
 	public int getUnitOwner(Unit unit) {
 		if (unit == null) return 0;
 		return unitOwners.getOrDefault(unit.getId(), 0);
+	}
+
+	public String getUnitCardName(Unit unit) {
+		if (unit == null) return "";
+		return unitCardNames.getOrDefault(unit.getId(), "");
 	}
 
 	public boolean isOwnedByCurrentPlayer(Unit unit) {
@@ -546,12 +557,17 @@ public class GameState {
 		BoardCell origin = getCellForUnit(unit);
 		if (origin == null) return result;
 
+		List<BoardCell> provokes = new ArrayList<>();
 		for (BoardCell cell : getAdjacentCells(origin.getX(), origin.getY(), true)) {
 			if (cell.isOccupied() && getUnitOwner(cell.getOccupant()) != getUnitOwner(unit)) {
-				result.add(cell);
+				if (hasProvoke(cell.getOccupant())) {
+					provokes.add(cell);
+				} else {
+					result.add(cell);
+				}
 			}
 		}
-		return result;
+		return provokes.isEmpty() ? result : provokes;
 	}
 
 	public boolean moveSelectedUnitTo(ActorRef out, BoardCell destination) {
@@ -755,12 +771,14 @@ public class GameState {
 
 			targetCell.trySetOccupant(unit);
 			unit.setPositionByTile(targetCell.getTile());
-			registerUnit(unit, currentPlayer);
+			registerUnit(unit, currentPlayer, card.getCardname());
 
 			BasicCommands.drawUnit(out, unit, targetCell.getTile());
 			Thread.sleep(50);
 			BasicCommands.setUnitHealth(out, unit, unit.getHealth());
 			BasicCommands.setUnitAttack(out, unit, unit.getAttack());
+
+			resolveOpeningGambit(out, unit);
 
 			setMovedThisTurn(unit, true);
 			setAttackedThisTurn(unit, true);
@@ -878,7 +896,11 @@ public class GameState {
 	}
 
 	private String normalizeCardName(Card card) {
-		return card.getCardname().trim().toLowerCase();
+		return normalizeName(card == null ? null : card.getCardname());
+	}
+
+	private String normalizeName(String name) {
+		return name == null ? "" : name.trim().toLowerCase();
 	}
 
 	private void removeCardFromCurrentHand(ActorRef out, int handPosition) {
@@ -951,11 +973,90 @@ public class GameState {
 			BasicCommands.addPlayer1Notification(out, "You Win!", 3);
 		}
 
+		triggerDeathwatchEffects(out, unit);
 		unitOwners.remove(unit.getId());
+		unitCardNames.remove(unit.getId());
 		movedThisTurn.remove(unit.getId());
 		attackedThisTurn.remove(unit.getId());
 		stunnedUntilTurn.remove(unit.getId());
 		return true;
+	}
+
+	private void resolveOpeningGambit(ActorRef out, Unit unit) {
+		String name = getUnitCardName(unit);
+		if (name.equals("gloom chaser")) {
+			summonWraithlingBehind(out, unit);
+		} else if (name.equals("nightsorrow assassin")) {
+			destroyAdjacentDamagedEnemy(out, unit);
+		}
+	}
+
+	private void summonWraithlingBehind(ActorRef out, Unit unit) {
+		BoardCell cell = getCellForUnit(unit);
+		if (cell == null) return;
+
+		int dx = getUnitOwner(unit) == 1 ? -1 : 1;
+		BoardCell behind = getCell(cell.getX() + dx, cell.getY());
+		if (behind == null || !behind.isEmpty()) return;
+
+		try {
+			Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
+			applyTokenStats(token, 1, 1);
+			behind.trySetOccupant(token);
+			token.setPositionByTile(behind.getTile());
+			registerUnit(token, getUnitOwner(unit), "wraithling");
+
+			BasicCommands.drawUnit(out, token, behind.getTile());
+			Thread.sleep(50);
+			BasicCommands.setUnitHealth(out, token, token.getHealth());
+			BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+			setMovedThisTurn(token, true);
+			setAttackedThisTurn(token, true);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void destroyAdjacentDamagedEnemy(ActorRef out, Unit unit) {
+		BoardCell cell = getCellForUnit(unit);
+		if (cell == null) return;
+
+		for (BoardCell adj : getAdjacentCells(cell.getX(), cell.getY(), true)) {
+			if (!adj.isOccupied()) continue;
+			Unit target = adj.getOccupant();
+			if (getUnitOwner(target) == getUnitOwner(unit)) continue;
+			if (target.getHealth() >= target.getMaxHealth()) continue;
+
+			target.setHealth(0);
+			handleUnitDeathIfNeeded(out, target);
+			return;
+		}
+	}
+
+	private void triggerDeathwatchEffects(ActorRef out, Unit deadUnit) {
+		for (BoardCell cell : allCells) {
+			if (!cell.isOccupied()) continue;
+			Unit watcher = cell.getOccupant();
+			if (watcher == deadUnit) continue;
+
+			String name = getUnitCardName(watcher);
+			if (name.equals("bad omen")) {
+				watcher.setAttack(watcher.getAttack() + 1);
+				BasicCommands.setUnitAttack(out, watcher, watcher.getAttack());
+			} else if (name.equals("shadow watcher")) {
+				watcher.setAttack(watcher.getAttack() + 1);
+				watcher.setHealth(watcher.getHealth() + 1);
+				watcher.setMaxHealth(watcher.getMaxHealth() + 1);
+				BasicCommands.setUnitAttack(out, watcher, watcher.getAttack());
+				BasicCommands.setUnitHealth(out, watcher, watcher.getHealth());
+			}
+		}
+	}
+
+	private boolean hasProvoke(Unit unit) {
+		String name = getUnitCardName(unit);
+		return name.equals("rock pulveriser");
 	}
 
 	// ---------------------------------------------------------------------
