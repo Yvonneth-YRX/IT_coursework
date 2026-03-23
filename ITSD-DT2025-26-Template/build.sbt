@@ -4,6 +4,8 @@ lazy val root = (project in file("."))
     name := "ITSD Card Game 25-26",
     version := "1.1",
     scalaVersion := "2.13.1",
+    // Avoid macOS JNA watcher issues in dev mode by using polling.
+    play.sbt.PlayImport.PlayKeys.fileWatchService := play.dev.filewatch.FileWatchService.polling(1000),
     // https://github.com/sbt/junit-interface
     testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-v"),
     libraryDependencies ++= Seq(
@@ -30,5 +32,4 @@ lazy val root = (project in file("."))
       "-Werror"
     )
   )
-
 
