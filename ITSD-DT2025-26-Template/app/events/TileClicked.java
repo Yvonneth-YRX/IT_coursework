@@ -1,12 +1,12 @@
 package events;
 
-
 import com.fasterxml.jackson.databind.JsonNode;
 
 import akka.actor.ActorRef;
+import commands.BasicCommands;
 import structures.GameState;
-
-import structures.board.BoardCell.Highlight;
+import structures.basic.Unit;
+import structures.board.BoardCell;
 
 /**
  * Indicates that the user has clicked an object on the game canvas, in this case a tile.
@@ -22,25 +22,78 @@ import structures.board.BoardCell.Highlight;
  * @author Dr. Richard McCreadie
  *
  */
-public class TileClicked implements EventProcessor{
+public class TileClicked implements EventProcessor {
 
 	@Override
 	public void processEvent(ActorRef out, GameState gameState, JsonNode message) {
+
+		if (gameState.isGameOver()) return;
 
 		int x = message.get("tilex").asInt();
 		int y = message.get("tiley").asInt();
 
 		System.out.println("[EVENT] tileClicked x=" + x + " y=" + y);
 
-		var cell = gameState.getCell(x, y);
-		if (cell == null) return;
+		BoardCell clickedCell = gameState.getCell(x, y);
+		if (clickedCell == null) return;
 
-		gameState.setLastClickedCell(cell);
+		gameState.setLastClickedCell(clickedCell);
 
-		// compute adjacent cells (including diagonal)
-		var neighbors = gameState.getAdjacentCells(x, y, true);
+		// only human player is controllable for now
+		if (gameState.getCurrentPlayer() != 1) {
+			BasicCommands.addPlayer1Notification(out, "Wait for your turn", 2);
+			return;
+		}
 
-		// IMPORTANT: use the new incremental highlight update (do NOT call clearAllHighlights here)
-		gameState.updateHighlightsByCoord(out, x, y, neighbors);
+		// -----------------------------------------------------------------
+		// 1) If a card is selected, resolve summon / spell first
+		// -----------------------------------------------------------------
+		if (gameState.getSelectedCard() != null) {
+			if (gameState.tryResolveCardActionAt(out, clickedCell)) {
+				return;
+			} else {
+				// clicked somewhere invalid while card selected -> clear card selection
+				gameState.clearSelection(out);
+				return;
+			}
+		}
+
+		// -----------------------------------------------------------------
+		// 2) Otherwise use existing unit logic
+		// -----------------------------------------------------------------
+		Unit selectedUnit = gameState.getSelectedUnit();
+
+		if (selectedUnit != null) {
+			if (clickedCell.isEmpty()) {
+				if (gameState.moveSelectedUnitTo(out, clickedCell)) {
+					return;
+				}
+			} else {
+				if (gameState.attackSelectedTarget(out, clickedCell)) {
+					return;
+				}
+			}
+		}
+
+		if (clickedCell.isOccupied()) {
+			Unit clickedUnit = clickedCell.getOccupant();
+
+			if (gameState.isOwnedByCurrentPlayer(clickedUnit)) {
+				if (gameState.hasMovedThisTurn(clickedUnit) && gameState.hasAttackedThisTurn(clickedUnit)) {
+					BasicCommands.addPlayer1Notification(out, "This unit has finished its action", 2);
+					return;
+				}
+
+				if (gameState.isUnitStunned(clickedUnit)) {
+					BasicCommands.addPlayer1Notification(out, "This unit is stunned", 2);
+					return;
+				}
+
+				gameState.selectUnit(out, clickedUnit);
+				return;
+			}
+		}
+
+		gameState.clearSelection(out);
 	}
 }

@@ -20,11 +20,16 @@ public class Unit {
 	@JsonIgnore
 	protected static ObjectMapper mapper = new ObjectMapper(); // Jackson Java Object Serializer, is used to read java objects from a file
 	
-	int id;
-	UnitAnimationType animation;
-	Position position;
-	UnitAnimationSet animations;
-	ImageCorrection correction;
+	public int id;
+	public UnitAnimationType animation;
+	public Position position;
+	public UnitAnimationSet animations;
+	public ImageCorrection correction;
+
+	// 新增：游戏逻辑属性
+	public int health = 20;      // 当前血量
+	public int maxHealth = 20;   // 最大血量
+	public int attack = 0;       // 攻击力
 	
 	public Unit() {}
 	
@@ -96,7 +101,32 @@ public class Unit {
 	public void setAnimations(UnitAnimationSet animations) {
 		this.animations = animations;
 	}
-	
+
+	// 新增：health 和 attack 的 getter/setter
+	public int getHealth() {
+		return health;
+	}
+
+	public void setHealth(int health) {
+		this.health = health;
+	}
+
+	public int getMaxHealth() {
+		return maxHealth;
+	}
+
+	public void setMaxHealth(int maxHealth) {
+		this.maxHealth = maxHealth;
+	}
+
+	public int getAttack() {
+		return attack;
+	}
+
+	public void setAttack(int attack) {
+		this.attack = attack;
+	}
+
 	/**
 	 * This command sets the position of the Unit to a specified
 	 * tile.
