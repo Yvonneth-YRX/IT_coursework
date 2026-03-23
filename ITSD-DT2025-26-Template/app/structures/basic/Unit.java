@@ -25,12 +25,15 @@ public class Unit {
 	public Position position;
 	public UnitAnimationSet animations;
 	public ImageCorrection correction;
+    private Card card;
 
 	// 新增：游戏逻辑属性
 	public int health = 20;      // 当前血量
 	public int maxHealth = 20;   // 最大血量
 	public int attack = 0;       // 攻击力
-	
+
+    private boolean provoke = false;
+
 	public Unit() {}
 	
 	public Unit(int id, UnitAnimationSet animations, ImageCorrection correction) {
@@ -126,6 +129,22 @@ public class Unit {
 	public void setAttack(int attack) {
 		this.attack = attack;
 	}
+
+    public Card getCard() {
+        return card;
+    }
+
+    public void setCard(Card card) {
+        this.card = card;
+    }
+
+    public boolean isProvoke() {
+        return provoke;
+    }
+
+    public void setProvoke(boolean provoke) {
+        this.provoke = provoke;
+    }
 
 	/**
 	 * This command sets the position of the Unit to a specified

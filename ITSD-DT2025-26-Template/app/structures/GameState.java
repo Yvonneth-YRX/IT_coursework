@@ -16,6 +16,7 @@ import structures.basic.Tile;
 import structures.basic.Unit;
 import structures.board.BoardCell;
 import structures.board.BoardCell.Highlight;
+import structures.basic.Ability;
 import utils.BasicObjectBuilders;
 import utils.StaticConfFiles;
 
@@ -50,6 +51,13 @@ public class GameState {
 	private int currentPlayer = 1;
 	private int turnNumber = 1;
 	private boolean gameOver = false;
+
+    // ---- Artifacts ----
+    private boolean player1HornActive = false;
+    private boolean player2HornActive = false;
+
+    private int player1HornDurability = 0;
+    private int player2HornDurability = 0;
 
 	// ---- Deck / Hand ----
 	private List<Card> player1Deck = new ArrayList<>();
@@ -121,7 +129,67 @@ public class GameState {
 		return currentPlayer == 1 ? player1Deck : player2Deck;
 	}
 
-	public void switchPlayer() {
+    public List<Unit> getUnits() {
+        List<Unit> units = new ArrayList<>();
+        for (BoardCell cell : allCells) {
+            if (cell.isOccupied()) {
+                units.add(cell.getOccupant());
+            }
+        }
+        return units;
+    }
+
+    public void equipHorn(int player) {
+        if (player == 1) {
+            player1HornActive = true;
+            player1HornDurability = 3;
+        } else {
+            player2HornActive = true;
+            player2HornDurability = 3;
+        }
+    }
+
+    public boolean hasHorn(int player) {
+        if (player == 1) {
+            return player1HornActive;
+        } else {
+            return player2HornActive;
+        }
+    }
+
+    public int getHornDurability(int player) {
+        if (player == 1) {
+            return player1HornDurability;
+        } else {
+            return player2HornDurability;
+        }
+    }
+
+    public void reduceHornDurability(ActorRef out, int player) {
+        if (player == 1) {
+            if (!player1HornActive) return;
+
+            player1HornDurability = player1HornDurability - 1;
+
+            if (player1HornDurability <= 0) {
+                player1HornActive = false;
+                player1HornDurability = 0;
+                BasicCommands.addPlayer1Notification(out, "Player 1 Horn destroyed", 2);
+            }
+        } else {
+            if (!player2HornActive) return;
+
+            player2HornDurability = player2HornDurability - 1;
+
+            if (player2HornDurability <= 0) {
+                player2HornActive = false;
+                player2HornDurability = 0;
+                BasicCommands.addPlayer1Notification(out, "Player 2 Horn destroyed", 2);
+            }
+        }
+    }
+
+    public void switchPlayer() {
 		currentPlayer = (currentPlayer == 1) ? 2 : 1;
 	}
 
@@ -500,6 +568,18 @@ public class GameState {
 	}
 
 	public List<BoardCell> getValidMoveCells(Unit unit) {
+        Card card = unit.getCard();
+
+        if (card != null && card.getCardname().equals("Young Flamewing")) {
+            List<BoardCell> result = new ArrayList<>();
+            for (BoardCell cell : allCells) {
+                if (cell.isEmpty()) {
+                    result.add(cell);
+                }
+            }
+            return result;
+        }
+
 		List<BoardCell> result = new ArrayList<>();
 		BoardCell origin = getCellForUnit(unit);
 		if (origin == null) return result;
@@ -602,8 +682,18 @@ public class GameState {
 			e.printStackTrace();
 		}
 
-		applyDamageToUnit(out, defender, attacker.getAttack());
-		setAttackedThisTurn(attacker, true);
+        applyDamageToUnit(out, defender, attacker.getAttack());
+
+        // Horn trigger: avatar dealt damage
+        if (attacker == player1Avatar && hasHorn(1)) {
+            summonRandomAdjacentWraithlingToAvatar(out, player1Avatar, 1);
+        }
+
+        if (attacker == player2Avatar && hasHorn(2)) {
+            summonRandomAdjacentWraithlingToAvatar(out, player2Avatar, 2);
+        }
+
+        setAttackedThisTurn(attacker, true);
 
 		boolean defenderDied = handleUnitDeathIfNeeded(out, defender);
 
@@ -712,16 +802,15 @@ public class GameState {
 			return result;
 		}
 
-		if (name.equals("horn of the forsaken")) {
-			Unit avatar = (currentPlayer == 1) ? player1Avatar : player2Avatar;
-			BoardCell avatarCell = getCellForUnit(avatar);
-			if (avatarCell != null) {
-				for (BoardCell adj : getAdjacentCells(avatarCell.getX(), avatarCell.getY(), true)) {
-					if (adj.isEmpty()) result.add(adj);
-				}
-			}
-			return result;
-		}
+        if (name.equals("horn of the forsaken")) {
+            // no target needed, use avatar tile as a dummy selectable tile
+            Unit avatar = (currentPlayer == 1) ? player1Avatar : player2Avatar;
+            BoardCell avatarCell = getCellForUnit(avatar);
+            if (avatarCell != null) {
+                result.add(avatarCell);
+            }
+            return result;
+        }
 
 		for (BoardCell cell : allCells) {
 			if (!cell.isOccupied()) continue;
@@ -732,10 +821,14 @@ public class GameState {
 			if (name.equals("truestrike")) {
 				if (owner != currentPlayer) result.add(cell);
 			} else if (name.equals("beamshock")) {
-				if (owner != currentPlayer) result.add(cell);
-			} else if (name.equals("dark terminus")) {
-				if (owner != currentPlayer) result.add(cell);
-			} else if (name.equals("sundrop elixir")) {
+                if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
+                    result.add(cell);
+                }
+            } else if (name.equals("dark terminus")) {
+                if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
+                    result.add(cell);
+                }
+            } else if (name.equals("sundrop elixir")) {
 				if (owner == currentPlayer) result.add(cell);
 			}
 		}
@@ -751,19 +844,32 @@ public class GameState {
 
 		try {
 			Unit unit = BasicObjectBuilders.loadUnit(card.getUnitConfig(), allocateUnitId(), Unit.class);
-			applyCardStatsToUnit(card, unit);
+            unit.setCard(card);
+            applyCardStatsToUnit(card, unit);
 
-			targetCell.trySetOccupant(unit);
-			unit.setPositionByTile(targetCell.getTile());
-			registerUnit(unit, currentPlayer);
+            if (card.getCardname().equals("Rock Pulveriser") ||
+                card.getCardname().equals("Swamp Entangler") ||
+                card.getCardname().equals("Silverguard Knight") ||
+                card.getCardname().equals("Ironcliffe Guardian")) {
+
+                unit.setProvoke(true);
+            }
+
+            targetCell.trySetOccupant(unit);
+            unit.setPositionByTile(targetCell.getTile());
+            registerUnit(unit, currentPlayer);
+
+            triggerOpeningGambit(out, unit);
 
 			BasicCommands.drawUnit(out, unit, targetCell.getTile());
 			Thread.sleep(50);
 			BasicCommands.setUnitHealth(out, unit, unit.getHealth());
 			BasicCommands.setUnitAttack(out, unit, unit.getAttack());
 
-			setMovedThisTurn(unit, true);
-			setAttackedThisTurn(unit, true);
+            if (!card.getCardname().equals("Saberspine Tiger")) {
+                setMovedThisTurn(unit, true);
+                setAttackedThisTurn(unit, true);
+            }
 
 			spendMana(out, currentPlayer, card.getManacost());
 			removeCardFromCurrentHand(out, selectedHandPosition);
@@ -789,79 +895,94 @@ public class GameState {
 				applyDamageToUnit(out, targetCell.getOccupant(), 2);
 				handleUnitDeathIfNeeded(out, targetCell.getOccupant());
 			} else if (name.equals("beamshock")) {
-				if (!targetCell.isOccupied()) return false;
-				stunUnitUntilNextTurn(targetCell.getOccupant());
-				BasicCommands.addPlayer1Notification(out, "Beamshock: target stunned", 2);
-			} else if (name.equals("sundrop elixir")) {
+                if (!targetCell.isOccupied()) return false;
+
+                Unit target = targetCell.getOccupant();
+
+                if (target == player1Avatar || target == player2Avatar) return false;
+
+                stunUnitUntilNextTurn(target);
+
+                BasicCommands.addPlayer1Notification(out, "Beamshock: target stunned", 2);
+            } else if (name.equals("sundrop elixir")) {
 				if (!targetCell.isOccupied()) return false;
 				Unit target = targetCell.getOccupant();
 				int newHealth = Math.min(target.getMaxHealth(), target.getHealth() + 4);
 				target.setHealth(newHealth);
 				BasicCommands.setUnitHealth(out, target, target.getHealth());
 				syncAvatarHealthIfNeeded(out, target);
-			} else if (name.equals("dark terminus")) {
-				if (!targetCell.isOccupied()) return false;
-				Unit victim = targetCell.getOccupant();
-				if (getUnitOwner(victim) == currentPlayer) return false;
+            } else if (name.equals("dark terminus")) {
+                if (!targetCell.isOccupied()) return false;
 
-				targetCell.clearOccupant();
-				victim.setHealth(0);
-				handleUnitDeathIfNeeded(out, victim);
+                Unit victim = targetCell.getOccupant();
 
-				Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
-				applyTokenStats(token, 1, 1);
-				targetCell.trySetOccupant(token);
-				token.setPositionByTile(targetCell.getTile());
-				registerUnit(token, currentPlayer);
+                if (getUnitOwner(victim) == currentPlayer) return false;
+                if (victim == player1Avatar || victim == player2Avatar) return false;
 
-				BasicCommands.drawUnit(out, token, targetCell.getTile());
-				Thread.sleep(50);
-				BasicCommands.setUnitHealth(out, token, token.getHealth());
-				BasicCommands.setUnitAttack(out, token, token.getAttack());
+                victim.setHealth(0);
+                handleUnitDeathIfNeeded(out, victim);
 
-				setMovedThisTurn(token, true);
-				setAttackedThisTurn(token, true);
+                Unit token = BasicObjectBuilders.loadUnit(
+                        StaticConfFiles.wraithling,
+                        allocateUnitId(),
+                        Unit.class
+                );
 
-			} else if (name.equals("wraithling swarm")) {
-				List<BoardCell> summonCells = getValidSummonCellsForCurrentPlayer();
-				int limit = Math.min(3, summonCells.size());
+                applyTokenStats(token, 1, 1);
 
-				for (int i = 0; i < limit; i++) {
-					BoardCell cell = summonCells.get(i);
-					Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
-					applyTokenStats(token, 1, 1);
-					cell.trySetOccupant(token);
-					token.setPositionByTile(cell.getTile());
-					registerUnit(token, currentPlayer);
+                targetCell.trySetOccupant(token);
+                token.setPositionByTile(targetCell.getTile());
+                registerUnit(token, currentPlayer);
 
-					BasicCommands.drawUnit(out, token, cell.getTile());
-					Thread.sleep(50);
-					BasicCommands.setUnitHealth(out, token, token.getHealth());
-					BasicCommands.setUnitAttack(out, token, token.getAttack());
+                BasicCommands.drawUnit(out, token, targetCell.getTile());
+                Thread.sleep(50);
+                BasicCommands.setUnitHealth(out, token, token.getHealth());
+                BasicCommands.setUnitAttack(out, token, token.getAttack());
 
-					setMovedThisTurn(token, true);
-					setAttackedThisTurn(token, true);
-				}
-			} else if (name.equals("horn of the forsaken")) {
-				// Simplified temporary implementation:
-				// summon 1 wraithling adjacent to your avatar.
-				if (targetCell == null || !targetCell.isEmpty()) return false;
+                setMovedThisTurn(token, true);
+                setAttackedThisTurn(token, true);
+            } else if (name.equals("wraithling swarm")) {
 
-				Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
-				applyTokenStats(token, 1, 1);
-				targetCell.trySetOccupant(token);
-				token.setPositionByTile(targetCell.getTile());
-				registerUnit(token, currentPlayer);
+                for (int i = 0; i < 3; i++) {
 
-				BasicCommands.drawUnit(out, token, targetCell.getTile());
-				Thread.sleep(50);
-				BasicCommands.setUnitHealth(out, token, token.getHealth());
-				BasicCommands.setUnitAttack(out, token, token.getAttack());
+                    List<BoardCell> summonCells = getValidSummonCellsForCurrentPlayer();
 
-				setMovedThisTurn(token, true);
-				setAttackedThisTurn(token, true);
+                    if (summonCells.isEmpty()) {
+                        break;
+                    }
 
-				BasicCommands.addPlayer1Notification(out, "Horn: simplified summon version", 2);
+                    BoardCell cell = summonCells.get(0);
+
+                    Unit token = BasicObjectBuilders.loadUnit(
+                            StaticConfFiles.wraithling,
+                            allocateUnitId(),
+                            Unit.class
+                    );
+
+                    applyTokenStats(token, 1, 1);
+
+                    cell.trySetOccupant(token);
+                    token.setPositionByTile(cell.getTile());
+                    registerUnit(token, currentPlayer);
+
+                    BasicCommands.drawUnit(out, token, cell.getTile());
+                    Thread.sleep(50);
+                    BasicCommands.setUnitHealth(out, token, token.getHealth());
+                    BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+                    setMovedThisTurn(token, true);
+                    setAttackedThisTurn(token, true);
+                }
+            } else if (name.equals("horn of the forsaken")) {
+
+                equipHorn(currentPlayer);
+
+                if (currentPlayer == 1) {
+                    BasicCommands.addPlayer1Notification(out, "Player 1 equipped Horn (3 durability)", 2);
+                } else {
+                    BasicCommands.addPlayer1Notification(out, "Player 2 equipped Horn (3 durability)", 2);
+                }
+
 			} else {
 				return false;
 			}
@@ -905,12 +1026,47 @@ public class GameState {
 	// Damage / death / avatar sync
 	// ---------------------------------------------------------------------
 
-	private void applyDamageToUnit(ActorRef out, Unit unit, int amount) {
-		if (unit == null) return;
-		unit.setHealth(unit.getHealth() - amount);
-		BasicCommands.setUnitHealth(out, unit, unit.getHealth());
-		syncAvatarHealthIfNeeded(out, unit);
-	}
+    private void applyDamageToUnit(ActorRef out, Unit unit, int amount) {
+        if (unit == null) return;
+
+        unit.setHealth(unit.getHealth() - amount);
+        BasicCommands.setUnitHealth(out, unit, unit.getHealth());
+
+        // ===== Silverguard Knight Zeal =====
+        if (unit == player1Avatar || unit == player2Avatar) {
+
+            int damagedPlayer = (unit == player1Avatar) ? 1 : 2;
+
+            for (BoardCell cell : allCells) {
+                if (!cell.isOccupied()) continue;
+
+                Unit u = cell.getOccupant();
+                Card c = u.getCard();
+
+                if (c == null) continue;
+
+                if (c.getCardname().equals("Silverguard Knight") &&
+                        getUnitOwner(u) == damagedPlayer) {
+
+                    int newAttack = u.getAttack() + 2;
+                    u.setAttack(newAttack);
+
+                    BasicCommands.setUnitAttack(out, u, newAttack);
+                }
+            }
+        }
+
+        syncAvatarHealthIfNeeded(out, unit);
+
+        // Horn durability loss when avatar takes damage
+        if (unit == player1Avatar && hasHorn(1)) {
+            reduceHornDurability(out, 1);
+        }
+
+        if (unit == player2Avatar && hasHorn(2)) {
+            reduceHornDurability(out, 2);
+        }
+    }
 
 	private void syncAvatarHealthIfNeeded(ActorRef out, Unit unit) {
 		if (unit == player1Avatar) {
@@ -936,6 +1092,8 @@ public class GameState {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+
+        triggerDeathwatch(out);
 
 		BasicCommands.deleteUnit(out, unit);
 
@@ -984,4 +1142,340 @@ public class GameState {
 			return castSpellCard(out, card, targetCell);
 		}
 	}
+
+    private void triggerDeathwatch(ActorRef out) {
+
+        for (BoardCell cell : allCells) {
+
+            Unit unit = cell.getOccupant();
+
+            if (unit == null) continue;
+
+            Card card = unit.getCard();
+
+            if (card == null) continue;
+
+            if (card.getAbilities() == null) continue;
+
+            for (Ability ability : card.getAbilities()) {
+
+                if (!ability.getTrigger().equals("UNIT_DIED")) continue;
+
+                // Bad Omen
+                if (ability.getEffectType().equals("GAIN_ATTACK")) {
+
+                    int newAttack = unit.getAttack() + ability.getAmount();
+                    unit.setAttack(newAttack);
+
+                    BasicCommands.setUnitAttack(out, unit, newAttack);
+                }
+
+                // Shadow Watcher
+                if (ability.getEffectType().equals("GAIN_ATTACK_HEALTH")) {
+
+                    int newAttack = unit.getAttack() + ability.getAmount();
+                    int newHealth = unit.getHealth() + ability.getAmount();
+                    int newMaxHealth = unit.getMaxHealth() + ability.getAmount();
+
+                    unit.setAttack(newAttack);
+                    unit.setHealth(newHealth);
+                    unit.setMaxHealth(newMaxHealth);
+
+                    BasicCommands.setUnitAttack(out, unit, newAttack);
+                    BasicCommands.setUnitHealth(out, unit, newHealth);
+                }
+
+                // Bloodmoon Priestess
+                if (ability.getEffectType().equals("SUMMON_WRAITHLING")) {
+
+                    summonRandomWraithling(out, unit);
+                }
+
+                // Shadowdancer
+                if (ability.getEffectType().equals("DRAIN_ENEMY_AVATAR")) {
+
+                    Unit enemyAvatar;
+                    Unit self = unit;
+
+                    if (getUnitOwner(self) == 1) {
+                        enemyAvatar = player2Avatar;
+                    } else {
+                        enemyAvatar = player1Avatar;
+                    }
+
+                    // enemy hero damage
+                    enemyAvatar.setHealth(enemyAvatar.getHealth() - ability.getAmount());
+                    BasicCommands.setUnitHealth(out, enemyAvatar, enemyAvatar.getHealth());
+
+                    syncAvatarHealthIfNeeded(out, enemyAvatar);
+
+                    // heal self
+                    int heal = ability.getAmount();
+                    int newHealth = Math.min(self.getMaxHealth(), self.getHealth() + heal);
+
+                    self.setHealth(newHealth);
+                    BasicCommands.setUnitHealth(out, self, newHealth);
+                }
+
+            }
+        }
+    }
+
+    private void summonRandomWraithling(ActorRef out, Unit priestess) {
+
+        BoardCell cell = getCellForUnit(priestess);
+        if (cell == null) {
+            System.out.println("summonRandomWraithling: priestess cell is null");
+            return;
+        }
+
+        List<BoardCell> adjacent = getAdjacentCells(cell.getX(), cell.getY(), true);
+        List<BoardCell> emptyCells = new ArrayList<>();
+
+        for (BoardCell c : adjacent) {
+            if (c.isEmpty()) {
+                emptyCells.add(c);
+            }
+        }
+
+        System.out.println("summonRandomWraithling emptyCells size = " + emptyCells.size());
+
+        if (emptyCells.isEmpty()) return;
+
+        Collections.shuffle(emptyCells);
+        BoardCell spawnCell = emptyCells.get(0);
+
+        try {
+            Unit token = BasicObjectBuilders.loadUnit(
+                    StaticConfFiles.wraithling,
+                    allocateUnitId(),
+                    Unit.class
+            );
+
+            applyTokenStats(token, 1, 1);
+
+            spawnCell.trySetOccupant(token);
+            token.setPositionByTile(spawnCell.getTile());
+
+            registerUnit(token, getUnitOwner(priestess));
+
+            BasicCommands.drawUnit(out, token, spawnCell.getTile());
+            Thread.sleep(50);
+            BasicCommands.setUnitHealth(out, token, token.getHealth());
+            BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+            setMovedThisTurn(token, true);
+            setAttackedThisTurn(token, true);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void triggerOpeningGambit(ActorRef out, Unit unit) {
+
+        Card card = unit.getCard();
+
+        if (card == null) return;
+        if (card.getAbilities() == null) return;
+
+        for (Ability ability : card.getAbilities()) {
+
+            if (!ability.getTrigger().equals("SUMMONED")) continue;
+
+            if (ability.getEffectType().equals("SUMMON_WRAITHLING_BEHIND")) {
+                summonWraithlingBehind(out, unit);
+            }
+
+            if (ability.getEffectType().equals("DESTROY_DAMAGED_ENEMY")) {
+                destroyDamagedAdjacentEnemy(out, unit);
+            }
+
+            if (ability.getEffectType().equals("BUFF_ADJACENT_TO_AVATAR")) {
+                buffAdjacentToAvatar(out, unit, ability.getAmount());
+            }
+
+        }
+    }
+
+    private void summonWraithlingBehind(ActorRef out, Unit unit) {
+
+        BoardCell cell = getCellForUnit(unit);
+
+        if (cell == null) return;
+
+        int x = cell.getX();
+        int y = cell.getY();
+
+        int owner = getUnitOwner(unit);
+
+        int behindX;
+
+        if (owner == 1) {
+            behindX = x - 1;
+        } else {
+            behindX = x + 1;
+        }
+
+        BoardCell spawnCell = getCell(behindX, y);
+
+        if (spawnCell == null || !spawnCell.isEmpty()) return;
+
+        try {
+
+            Unit token = BasicObjectBuilders.loadUnit(
+                    StaticConfFiles.wraithling,
+                    allocateUnitId(),
+                    Unit.class
+            );
+
+            applyTokenStats(token, 1, 1);
+
+            spawnCell.trySetOccupant(token);
+            token.setPositionByTile(spawnCell.getTile());
+
+            registerUnit(token, owner);
+
+            BasicCommands.drawUnit(out, token, spawnCell.getTile());
+
+            Thread.sleep(50);
+
+            BasicCommands.setUnitHealth(out, token, token.getHealth());
+            BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+            setMovedThisTurn(token, true);
+            setAttackedThisTurn(token, true);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void destroyDamagedAdjacentEnemy(ActorRef out, Unit assassin) {
+
+        BoardCell cell = getCellForUnit(assassin);
+        if (cell == null) {
+            System.out.println("destroyDamagedAdjacentEnemy: assassin cell is null");
+            return;
+        }
+
+        int owner = getUnitOwner(assassin);
+        List<Unit> candidates = new ArrayList<>();
+
+        for (BoardCell neighbor : getAdjacentCells(cell.getX(), cell.getY(), true)) {
+
+            if (!neighbor.isOccupied()) continue;
+
+            Unit target = neighbor.getOccupant();
+
+            if (getUnitOwner(target) == owner) continue;
+
+            if (target.getHealth() < target.getMaxHealth()) {
+                candidates.add(target);
+            }
+        }
+
+        System.out.println("destroyDamagedAdjacentEnemy candidates size = " + candidates.size());
+
+        if (candidates.isEmpty()) return;
+
+        Unit victim = candidates.get(0);
+
+        victim.setHealth(0);
+        handleUnitDeathIfNeeded(out, victim);
+    }
+
+    public boolean isProvoked(Unit unit) {
+        BoardCell cell = getCellForUnit(unit);
+        if (cell == null) return false;
+        int owner = getUnitOwner(unit);
+        for (BoardCell neighbor : getAdjacentCells(cell.getX(), cell.getY(), true)) {
+            if (!neighbor.isOccupied()) continue;
+            Unit other = neighbor.getOccupant();
+            if (getUnitOwner(other) != owner && other.isProvoke()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void summonRandomAdjacentWraithlingToAvatar(ActorRef out, Unit avatar, int owner) {
+
+        BoardCell cell = getCellForUnit(avatar);
+        if (cell == null) return;
+
+        List<BoardCell> adjacent = getAdjacentCells(cell.getX(), cell.getY(), true);
+        List<BoardCell> emptyCells = new ArrayList<>();
+
+        for (BoardCell c : adjacent) {
+            if (c.isEmpty()) {
+                emptyCells.add(c);
+            }
+        }
+
+        if (emptyCells.isEmpty()) return;
+
+        Collections.shuffle(emptyCells);
+        BoardCell spawnCell = emptyCells.get(0);
+
+        try {
+            Unit token = BasicObjectBuilders.loadUnit(
+                    StaticConfFiles.wraithling,
+                    allocateUnitId(),
+                    Unit.class
+            );
+
+            applyTokenStats(token, 1, 1);
+
+            spawnCell.trySetOccupant(token);
+            token.setPositionByTile(spawnCell.getTile());
+
+            registerUnit(token, owner);
+
+            BasicCommands.drawUnit(out, token, spawnCell.getTile());
+            Thread.sleep(50);
+            BasicCommands.setUnitHealth(out, token, token.getHealth());
+            BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+            setMovedThisTurn(token, true);
+            setAttackedThisTurn(token, true);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void buffAdjacentToAvatar(ActorRef out, Unit squire, int amount) {
+
+        int owner = getUnitOwner(squire);
+
+        Unit avatar = (owner == 1) ? player1Avatar : player2Avatar;
+
+        BoardCell avatarCell = getCellForUnit(avatar);
+        if (avatarCell == null) return;
+
+        List<BoardCell> adjacent = getAdjacentCells(avatarCell.getX(), avatarCell.getY(), true);
+
+        for (BoardCell cell : adjacent) {
+
+            if (!cell.isOccupied()) continue;
+
+            Unit target = cell.getOccupant();
+
+            if (getUnitOwner(target) != owner) continue;
+
+            // ===== buff =====
+            int newAttack = target.getAttack() + amount;
+            int newHealth = target.getHealth() + amount;
+            int newMaxHealth = target.getMaxHealth() + amount;
+
+            target.setAttack(newAttack);
+            target.setHealth(newHealth);
+            target.setMaxHealth(newMaxHealth);
+
+            BasicCommands.setUnitAttack(out, target, newAttack);
+            BasicCommands.setUnitHealth(out, target, newHealth);
+        }
+    }
+
 }

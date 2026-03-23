@@ -23,5 +23,14 @@
 		"health": 1
 	},
 	"isCreature": true,
-	"unitConfig": "conf/gameconfs/units/silverguard_squire.json"
+	"unitConfig": "conf/gameconfs/units/silverguard_squire.json",
+
+    "abilities": [
+      {
+        "trigger": "SUMMONED",
+        "effectType": "BUFF_ADJACENT_TO_AVATAR",
+        "amount": 1
+      }
+    ]
+
 }
