@@ -6,6 +6,7 @@ import actors.GameActor;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
+import akka.stream.OverflowStrategy;
 import akka.stream.Materializer;
 import play.data.Form;
 import play.data.FormFactory;
@@ -42,7 +43,12 @@ public class GameScreenController extends Controller {
 	public WebSocket socket() {
 
 		return WebSocket.Json.accept(
-				request -> ActorFlow.actorRef(this::createGameActor, actorSystem, materializer));
+				request -> ActorFlow.actorRef(
+						this::createGameActor,
+						32,
+						OverflowStrategy.fail(),
+						actorSystem,
+						materializer));
 	}
 
 	/**

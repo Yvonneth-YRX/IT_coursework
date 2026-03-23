@@ -257,15 +257,18 @@ function drawUnit(message) {
 	var spriteX = message.unit.position.xpos - message.unit.correction.spriteTopLeftX;
 	var spriteY = message.unit.position.ypos - message.unit.correction.spriteTopLeftY-20;
 	
-	unit.setPosition(message.unit.correction.offsetX, message.unit.correction.offsetY);
-    unit.width = message.unit.correction.imgWidth*(1+(message.unit.correction.spriteTopLeftX/message.unit.correction.imgWidth))*message.unit.correction.scale;
-    unit.height = message.unit.correction.imgHeight*(1+(message.unit.correction.spriteTopLeftY/message.unit.correction.imgHeight))*message.unit.correction.scale;
+	var renderedWidth = message.unit.correction.imgWidth*(1+(message.unit.correction.spriteTopLeftX/message.unit.correction.imgWidth))*message.unit.correction.scale;
+	var renderedHeight = message.unit.correction.imgHeight*(1+(message.unit.correction.spriteTopLeftY/message.unit.correction.imgHeight))*message.unit.correction.scale;
+    unit.width = renderedWidth;
+    unit.height = renderedHeight;
 	unit.gameID = message.unit.id;
 	
 	// if reflect, flip the unit sprite
 	if (message.unit.correction.reflected) {
-		unit.scale.x = -1*message.unit.correction.scale;
-		unit.setPosition((message.unit.correction.imgWidth*message.unit.correction.scale)+message.unit.correction.offsetX, message.unit.correction.offsetY);
+		unit.scale.x = -1 * Math.abs(unit.scale.x);
+		unit.setPosition(renderedWidth + message.unit.correction.offsetX, message.unit.correction.offsetY);
+	} else {
+		unit.setPosition(message.unit.correction.offsetX, message.unit.correction.offsetY);
 	}
 	
 	//unit.interactive = true;
@@ -1023,12 +1026,14 @@ function play(){
     }
 	
 
-	sinceLastHeartbeat = sinceLastHeartbeat+1;
-	if (sinceLastHeartbeat==120) {
-		ws.send(JSON.stringify({
-    		messagetype: "heartbeat"
-        }));
-        sinceLastHeartbeat = 1;
+	sinceLastHeartbeat = sinceLastHeartbeat + 1;
+	if (sinceLastHeartbeat >= 600) {
+		if (ws && ws.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify({
+    			messagetype: "heartbeat"
+        	}));
+		}
+        sinceLastHeartbeat = 0;
 	}
     				
   }
