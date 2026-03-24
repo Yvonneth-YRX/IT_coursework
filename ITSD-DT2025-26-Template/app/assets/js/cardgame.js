@@ -38,15 +38,7 @@ function load(){
 //3. The `setup` function, which initializes your game objects, variables and sprites
 
 function setup() {
-
-  //Create your game objects here
-  let bg = g.sprite("assets/game/extra/battlemap6_middleground.png");
-  bg.interactive = true;
-  bg.on('click', bgClicked);
-  bg.setPosition(0, 0);
-  bg.width = stageWidth;
-  bg.height = stageHeight;
-  g.stage.addChild(bg);
+  renderBackground();
 
   // Set up Methods for triggering actions based on pointer clicks
   //g.pointer.press = () => {console.log("The pointer was pressed "+g.pointer.x+" "+g.pointer.y);}
@@ -59,6 +51,16 @@ function setup() {
 
   //Set the game state to `play` to start the game loop
   g.state = play;
+}
+
+function renderBackground() {
+	var bg = g.sprite("assets/game/extra/battlemap6_middleground.png");
+	bg.interactive = true;
+	bg.on('click', bgClicked);
+	bg.setPosition(0, 0);
+	bg.width = stageWidth;
+	bg.height = stageHeight;
+	g.stage.addChild(bg);
 }
 
 function createOverlayButton(label, x, y, width, height, clickHandler) {
@@ -225,16 +227,74 @@ function showResultOverlay(result) {
 	resultOverlay = overlay;
 	resultOverlayPulse = 0;
 	g.stage.addChild(overlay);
+	ensureOverlayZOrder();
 }
 
 function restartGameClicked() {
-	try {
-		window.sessionStorage.setItem("autoStartNextGame", "true");
-	} catch (error) {
-		console.log(error);
+	resetClientGameState();
+	gameStart = true;
+	gameResult = null;
+	gameResultArmed = false;
+	renderPlayer1Card();
+	renderPlayer2Card();
+	renderEndTurnButton();
+
+	if (ws && ws.readyState === WebSocket.OPEN) {
+		ws.send(JSON.stringify({
+			messagetype: "restartgame"
+		}));
+	}
+}
+
+function resetClientGameState() {
+	if (g && g.stage) {
+		g.stage.removeChildren();
+		renderBackground();
 	}
 
-	window.location.reload();
+	boardTiles = new Map();
+	spriteContainers = new Map();
+	sprites = new Map();
+	attackLabels = new Map();
+	healthLabels = new Map();
+	handContainers = [null, null, null, null, null, null];
+	handSprites = [null, null, null, null, null, null];
+	cardJSON = [null, null, null, null, null, null];
+	cardPreview = null;
+	prevewCountdown = 0;
+	activeMoves = new Map();
+	activeProjectiles = [];
+	drawUnitQueue = [];
+	drawTileQueue = [];
+	player1ManaIcons = new Map();
+	player2ManaIcons = new Map();
+	player1Health = null;
+	player2Health = null;
+	player1Notification = null;
+	player2Notification = null;
+	player1NotificationText = null;
+	player2NotificationText = null;
+	playingEffects = [];
+	startOverlay = null;
+	resultOverlay = null;
+	startOverlayPulse = 0;
+	resultOverlayPulse = 0;
+}
+
+function ensureOverlayZOrder() {
+	if (!g || !g.stage) {
+		return;
+	}
+
+	if (startOverlay !== null) {
+		g.stage.removeChild(startOverlay);
+		g.stage.addChild(startOverlay);
+	}
+
+	if (resultOverlay !== null) {
+		g.stage.removeChild(resultOverlay);
+		g.stage.addChild(resultOverlay);
+	}
 }
 
 function updateOverlayAnimations() {
@@ -380,12 +440,28 @@ function drawCard(message) {
 	manaText.position.y = 25;
 	cardContainer.addChild(manaText);
 	handContainers[handIndex] = cardContainer;
-	
-	
-	cardContainer.position.x = 200+(handIndex*220);
-	cardContainer.position.y = 880;
 
 	g.stage.addChild(cardContainer);
+	layoutHandCards();
+	ensureOverlayZOrder();
+}
+
+function layoutHandCards() {
+	var spacing = 165;
+	var startX = 290;
+	var y = 840;
+	var visibleIndex = 0;
+
+	for (var i = 0; i < handContainers.length; i++) {
+		var container = handContainers[i];
+		if (container == null) {
+			continue;
+		}
+
+		container.position.x = startX + (visibleIndex * spacing);
+		container.position.y = y;
+		visibleIndex = visibleIndex + 1;
+	}
 }
 
 function renderCardPreview(position) {
@@ -473,6 +549,15 @@ function drawUnit(message) {
 	
 	//console.log(message.unit);
 
+	var existingContainer = spriteContainers.get(message.unit.id);
+	if (existingContainer) {
+		g.stage.removeChild(existingContainer);
+		spriteContainers.delete(message.unit.id);
+		sprites.delete(message.unit.id);
+		healthLabels.delete(message.unit.id);
+		attackLabels.delete(message.unit.id);
+	}
+
 	var unitContainer = new PIXI.Container();
 	
 	// Draw unit in idle stance
@@ -530,6 +615,7 @@ function drawUnit(message) {
 	unitContainer.position.y = spriteY;
 
 	g.stage.addChild(unitContainer);
+	ensureOverlayZOrder();
 
 	spriteContainers.set(message.unit.id, unitContainer);
 	sprites.set(message.unit.id, unit);
@@ -737,6 +823,7 @@ function drawProjectile(message) {
 	projectile.effect = message.effect;
 	
 	g.stage.addChild(projectile);
+	ensureOverlayZOrder();
 	
 	activeProjectiles.push(projectile)
 
@@ -1147,6 +1234,7 @@ function deleteCard(message) {
 	handSprites[message.position-1]=null;
 	cardJSON[message.position-1]=null;
 	prevewCountdown = 0;
+	layoutHandCards();
 }
 
 function deleteUnit(message) {
@@ -1171,6 +1259,7 @@ function playEffectAnimation(message) {
 	effect.loop = false;
 	effect.playAnimation();
 	g.stage.addChild(effect);
+	ensureOverlayZOrder();
 	
 	var frameDiff = (60/effect.fps)+1;
 	effect.killCountdown = frameDiff*message.effect.animationTextures.length;
@@ -1277,6 +1366,7 @@ function play(){
     }
 
 	updateOverlayAnimations();
+	ensureOverlayZOrder();
 	
 
 	sinceLastHeartbeat = sinceLastHeartbeat + 1;
