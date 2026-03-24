@@ -286,6 +286,7 @@ public class AIController {
             if (gameState.isGameOver()) return null;
             if (unit == null) continue;
             if (gameState.isUnitStunned(unit)) continue;
+            if (unit.getAttack() <= 0) continue;
 
             if (gameState.hasAttackedThisTurn(unit)) continue;
 
@@ -324,10 +325,13 @@ public class AIController {
 
     private static int scoreAttackTarget(GameState gameState, Unit attacker, BoardCell targetCell) {
         if (attacker == null || targetCell == null || !targetCell.isOccupied()) return Integer.MIN_VALUE;
+        if (attacker.getAttack() <= 0) return Integer.MIN_VALUE;
 
         Unit defender = targetCell.getOccupant();
         BoardCell attackerCell = gameState.getCellForUnit(attacker);
         boolean defensiveMode = shouldEnterDefensiveMode(gameState);
+        boolean advantageMode = shouldEnterAdvantageMode(gameState);
+        boolean aiAvatarAttacking = attacker == gameState.getPlayer2Avatar();
         if (attackerCell == null) return Integer.MIN_VALUE;
 
         if (defender == gameState.getPlayer1Avatar()) {
@@ -343,7 +347,14 @@ public class AIController {
             if (defensiveMode) {
                 score -= 220;
             }
+            if (aiAvatarAttacking) {
+                score += advantageMode ? 80 : -180;
+            }
             return score;
+        }
+
+        if (aiAvatarAttacking) {
+            return advantageMode ? 40 : -220;
         }
 
         int score = estimateThreat(gameState, defender) * 10;
@@ -384,6 +395,7 @@ public class AIController {
         BoardCell aiAvatarCell = gameState.getCellForUnit(aiAvatar);
         BoardCell enemyAvatarCell = gameState.getCellForUnit(enemyAvatar);
         boolean defensiveMode = shouldEnterDefensiveMode(gameState);
+        boolean advantageMode = shouldEnterAdvantageMode(gameState);
         int score = 0;
 
         if (enemyAvatarCell != null) {
@@ -408,8 +420,22 @@ public class AIController {
         if (enemyAvatarCell != null && couldAttackHeroSoon(destination, enemyAvatarCell)) {
             score += 160;
         }
+        if (isProvokeUnit(gameState, unit)) {
+            score += scoreProvokeAdvance(gameState, destination, enemyAvatarCell);
+        }
         if (defensiveMode) {
-            score += scoreDefensiveRetreat(gameState, destination, aiAvatarCell, enemyAvatarCell);
+            score += scoreDefensiveRetreat(gameState, destination, aiAvatarCell, enemyAvatarCell, isProvokeUnit(gameState, unit));
+        }
+        if (unit == aiAvatar) {
+            score -= adjacentEnemyCount * (advantageMode ? 40 : 110);
+            if (enemyAvatarCell != null) {
+                score += Math.max(0, (advantageMode ? 28 : 14) - distance(destination, enemyAvatarCell) * 4);
+            }
+            BoardCell nearestHuman = getNearestHumanUnitCell(gameState, destination);
+            if (nearestHuman != null) {
+                score += Math.max(0, (advantageMode ? 22 : 10) - distance(destination, nearestHuman) * 4);
+            }
+            score += scoreCenterControl(destination) + (advantageMode ? 12 : 0);
         }
         return score;
     }
@@ -487,6 +513,29 @@ public class AIController {
                 && (humanThreat >= aiHealth - 1 || nearbyEnemies >= 2);
     }
 
+    private static boolean shouldEnterAdvantageMode(GameState gameState) {
+        Unit aiAvatar = gameState.getPlayer2Avatar();
+        Unit humanAvatar = gameState.getPlayer1Avatar();
+        if (aiAvatar == null || humanAvatar == null) return false;
+
+        int aiHealth = aiAvatar.getHealth();
+        int humanHealth = humanAvatar.getHealth();
+        int aiBoard = estimateBoardStrength(gameState, AI_OWNER);
+        int humanBoard = estimateBoardStrength(gameState, HUMAN_OWNER);
+
+        return aiHealth >= humanHealth
+                && aiBoard >= humanBoard + 6;
+    }
+
+    private static int estimateBoardStrength(GameState gameState, int owner) {
+        int strength = 0;
+        for (Unit unit : getUnitsOwnedBy(gameState, owner)) {
+            if (unit == null) continue;
+            strength += unit.getAttack() * 2 + unit.getHealth();
+        }
+        return strength;
+    }
+
     private static int estimateHumanThreatToAiHero(GameState gameState) {
         Unit aiAvatar = gameState.getPlayer2Avatar();
         if (aiAvatar == null) return 0;
@@ -537,11 +586,11 @@ public class AIController {
         return score;
     }
 
-    private static int scoreDefensiveRetreat(GameState gameState, BoardCell destination, BoardCell aiAvatarCell, BoardCell enemyAvatarCell) {
+    private static int scoreDefensiveRetreat(GameState gameState, BoardCell destination, BoardCell aiAvatarCell, BoardCell enemyAvatarCell, boolean provokeUnit) {
         if (destination == null || aiAvatarCell == null) return 0;
 
         int score = 0;
-        score -= countAdjacentEnemies(gameState, destination, AI_OWNER) * 140;
+        score -= countAdjacentEnemies(gameState, destination, AI_OWNER) * (provokeUnit ? 40 : 140);
         score += countAdjacentAllies(gameState, destination, AI_OWNER) * 45;
 
         int distFromAi = distance(destination, aiAvatarCell);
@@ -553,6 +602,35 @@ public class AIController {
 
         if (enemyAvatarCell != null) {
             score -= Math.max(0, 20 - distance(destination, enemyAvatarCell) * 5);
+        }
+
+        return score;
+    }
+
+    private static int scoreProvokeAdvance(GameState gameState, BoardCell destination, BoardCell enemyAvatarCell) {
+        if (destination == null) return 0;
+
+        int score = 0;
+        int adjacentEnemies = countAdjacentEnemies(gameState, destination, AI_OWNER);
+        score += adjacentEnemies * 180;
+
+        BoardCell nearestHuman = getNearestHumanUnitCell(gameState, destination);
+        if (nearestHuman != null) {
+            int dist = distance(destination, nearestHuman);
+            score += Math.max(0, 24 - dist * 8);
+            if (dist <= 1) {
+                score += 180;
+            } else if (dist == 2) {
+                score += 80;
+            }
+        }
+
+        if (enemyAvatarCell != null) {
+            int heroDist = distance(destination, enemyAvatarCell);
+            score += Math.max(0, 18 - heroDist * 5);
+            if (heroDist <= 1) {
+                score += 120;
+            }
         }
 
         return score;
@@ -626,6 +704,42 @@ public class AIController {
         int dx = Math.abs(a.getX() - b.getX());
         int dy = Math.abs(a.getY() - b.getY());
         return dx <= 1 && dy <= 1 && !(dx == 0 && dy == 0);
+    }
+
+    private static int scoreCenterControl(BoardCell cell) {
+        if (cell == null) return 0;
+        int dx = Math.abs(cell.getX() - 4);
+        int dy = Math.abs(cell.getY() - 2);
+        return Math.max(0, 18 - (dx * 4 + dy * 5));
+    }
+
+    private static boolean isProvokeUnit(GameState gameState, Unit unit) {
+        if (gameState == null || unit == null) return false;
+        String name = normalize(gameState.getUnitCardName(unit));
+        return name.equals("rock pulveriser")
+                || name.equals("swamp entangler")
+                || name.equals("silverguard knight")
+                || name.equals("ironcliff guardian");
+    }
+
+    private static BoardCell getNearestHumanUnitCell(GameState gameState, BoardCell from) {
+        if (gameState == null || from == null) return null;
+
+        BoardCell best = null;
+        int bestDist = Integer.MAX_VALUE;
+
+        for (Unit unit : getUnitsOwnedBy(gameState, HUMAN_OWNER)) {
+            if (unit == null) continue;
+            BoardCell cell = gameState.getCellForUnit(unit);
+            if (cell == null) continue;
+            int dist = distance(from, cell);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = cell;
+            }
+        }
+
+        return best;
     }
 
     private static String normalize(String value) {

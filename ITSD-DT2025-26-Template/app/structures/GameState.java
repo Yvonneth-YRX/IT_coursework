@@ -11,6 +11,7 @@ import java.util.Set;
 import akka.actor.ActorRef;
 import commands.BasicCommands;
 import structures.basic.Card;
+import structures.basic.EffectAnimation;
 import structures.basic.Player;
 import structures.basic.Tile;
 import structures.basic.Unit;
@@ -410,6 +411,10 @@ public class GameState {
 	// ---------------------------------------------------------------------
 
 	public void redrawPlayerHand(ActorRef out, int player) {
+		if (player != 1) {
+			return;
+		}
+
 		for (int pos = 1; pos <= 6; pos++) {
 			BasicCommands.deleteCard(out, pos);
 		}
@@ -423,6 +428,10 @@ public class GameState {
 	}
 
 	public void highlightHandCard(ActorRef out, int player, int handPosition) {
+		if (player != 1) {
+			return;
+		}
+
 		redrawPlayerHand(out, player);
 		List<Card> hand = (player == 1) ? player1Hand : player2Hand;
 		int index = handPosition - 1;
@@ -750,7 +759,9 @@ public class GameState {
 			} else if (name.equals("beamshock")) {
 				if (owner != currentPlayer) result.add(cell);
 			} else if (name.equals("dark terminus")) {
-				if (owner != currentPlayer) result.add(cell);
+				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
+					result.add(cell);
+				}
 			} else if (name.equals("sundrop elixir")) {
 				if (owner == currentPlayer) result.add(cell);
 			}
@@ -804,12 +815,21 @@ public class GameState {
 		try {
 			if (name.equals("truestrike")) {
 				if (!targetCell.isOccupied()) return false;
+				playSpellEffect(out, targetCell, StaticConfFiles.f1_soulshatter);
 				applyDamageToUnit(out, targetCell.getOccupant(), 2);
 				handleUnitDeathIfNeeded(out, targetCell.getOccupant());
 			} else if (name.equals("beamshock")) {
 				if (!targetCell.isOccupied()) return false;
-				stunUnitUntilNextTurn(targetCell.getOccupant());
-				BasicCommands.addPlayer1Notification(out, "Beamshock: target stunned", 2);
+				Unit target = targetCell.getOccupant();
+				playSpellEffect(out, targetCell, StaticConfFiles.f1_buff);
+				stunUnitUntilNextTurn(target);
+				if (target == player1Avatar) {
+					BasicCommands.addPlayer1Notification(out, "Your avatar was stunned by Beamshock. No damage dealt.", 3);
+				} else if (target == player2Avatar) {
+					BasicCommands.addPlayer1Notification(out, "AI avatar was stunned by Beamshock. No damage dealt.", 3);
+				} else {
+					BasicCommands.addPlayer1Notification(out, "Beamshock: target stunned", 2);
+				}
 			} else if (name.equals("sundrop elixir")) {
 				if (!targetCell.isOccupied()) return false;
 				Unit target = targetCell.getOccupant();
@@ -821,6 +841,7 @@ public class GameState {
 				if (!targetCell.isOccupied()) return false;
 				Unit victim = targetCell.getOccupant();
 				if (getUnitOwner(victim) == currentPlayer) return false;
+				if (victim == player1Avatar || victim == player2Avatar) return false;
 
 				targetCell.clearOccupant();
 				victim.setHealth(0);
@@ -841,8 +862,8 @@ public class GameState {
 				setAttackedThisTurn(token, true);
 
 			} else if (name.equals("wraithling swarm")) {
-				List<BoardCell> summonCells = getValidSummonCellsForCurrentPlayer();
-				int limit = Math.min(3, summonCells.size());
+				List<BoardCell> summonCells = getSummonCellsNearTarget(targetCell, 3);
+				int limit = summonCells.size();
 
 				for (int i = 0; i < limit; i++) {
 					BoardCell cell = summonCells.get(i);
@@ -897,6 +918,69 @@ public class GameState {
 
 	private String normalizeCardName(Card card) {
 		return normalizeName(card == null ? null : card.getCardname());
+	}
+
+	private List<BoardCell> getSummonCellsNearTarget(BoardCell targetCell, int maxCount) {
+		List<BoardCell> result = new ArrayList<>();
+		if (targetCell == null || maxCount <= 0) {
+			return result;
+		}
+
+		List<BoardCell> validCells = getValidSummonCellsForCurrentPlayer();
+		if (!validCells.contains(targetCell)) {
+			return result;
+		}
+
+		result.add(targetCell);
+
+		for (BoardCell cell : getAdjacentCells(targetCell.getX(), targetCell.getY(), true)) {
+			if (result.size() >= maxCount) {
+				break;
+			}
+			if (validCells.contains(cell) && !result.contains(cell)) {
+				result.add(cell);
+			}
+		}
+
+		if (result.size() < maxCount) {
+			for (BoardCell cell : validCells) {
+				if (result.size() >= maxCount) {
+					break;
+				}
+				if (!result.contains(cell)) {
+					result.add(cell);
+				}
+			}
+		}
+
+		return result;
+	}
+
+	private void playSpellEffect(ActorRef out, BoardCell targetCell, String impactEffectConf) {
+		if (targetCell == null || impactEffectConf == null || impactEffectConf.isEmpty()) {
+			return;
+		}
+
+		Unit casterAvatar = (currentPlayer == 1) ? player1Avatar : player2Avatar;
+		BoardCell casterCell = getCellForUnit(casterAvatar);
+
+		try {
+			if (casterCell != null) {
+				EffectAnimation projectile = BasicObjectBuilders.loadEffect(StaticConfFiles.f1_projectiles);
+				if (projectile != null) {
+					BasicCommands.playProjectileAnimation(out, projectile, 0, casterCell.getTile(), targetCell.getTile());
+					Thread.sleep(180);
+				}
+			}
+
+			EffectAnimation impact = BasicObjectBuilders.loadEffect(impactEffectConf);
+			if (impact != null) {
+				int waitMs = BasicCommands.playEffectAnimation(out, impact, targetCell.getTile());
+				Thread.sleep(Math.min(waitMs, 500));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	private String normalizeName(String name) {
@@ -1056,7 +1140,10 @@ public class GameState {
 
 	private boolean hasProvoke(Unit unit) {
 		String name = getUnitCardName(unit);
-		return name.equals("rock pulveriser");
+		return name.equals("rock pulveriser")
+				|| name.equals("swamp entangler")
+				|| name.equals("silverguard knight")
+				|| name.equals("ironcliff guardian");
 	}
 
 	// ---------------------------------------------------------------------
@@ -1077,6 +1164,8 @@ public class GameState {
 		selectedCard = card;
 		selectedHandPosition = index + 1;
 
+		announceAICardPlay(out, card, targetCell);
+
 		if (card.getIsCreature()) {
 			selectionMode = SelectionMode.CARD_SUMMON;
 			return summonCreatureCard(out, card, targetCell);
@@ -1084,5 +1173,51 @@ public class GameState {
 			selectionMode = SelectionMode.CARD_SPELL;
 			return castSpellCard(out, card, targetCell);
 		}
+	}
+
+	private void announceAICardPlay(ActorRef out, Card card, BoardCell targetCell) {
+		if (currentPlayer != 2 || card == null) {
+			return;
+		}
+
+		String cardName = card.getCardname();
+		String targetDescription = describeTarget(targetCell);
+		String message;
+
+		if (card.getIsCreature()) {
+			message = "AI summoned " + cardName + formatTargetSuffix(targetDescription);
+		} else {
+			message = "AI cast " + cardName + formatTargetSuffix(targetDescription);
+		}
+
+		System.out.println("[AI] " + message);
+		BasicCommands.addPlayer1Notification(out, message, 2);
+	}
+
+	private String describeTarget(BoardCell targetCell) {
+		if (targetCell == null) {
+			return "";
+		}
+
+		if (targetCell.isOccupied()) {
+			Unit target = targetCell.getOccupant();
+			if (target == player1Avatar) return "your avatar";
+			if (target == player2Avatar) return "its avatar";
+
+			String name = unitCardNames.get(target.getId());
+			if (name == null || name.trim().isEmpty()) {
+				return "a unit";
+			}
+			return name;
+		}
+
+		return "tile (" + targetCell.getX() + "," + targetCell.getY() + ")";
+	}
+
+	private String formatTargetSuffix(String targetDescription) {
+		if (targetDescription == null || targetDescription.isEmpty()) {
+			return "";
+		}
+		return " on " + targetDescription;
 	}
 }

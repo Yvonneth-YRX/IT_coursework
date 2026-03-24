@@ -86,6 +86,10 @@ function drawTile(message) {
 }
 
 function tileClicked(eventData) {
+	if (activeMoves.size > 0) {
+		return;
+	}
+
 	ws.send(JSON.stringify({
     		messagetype: "tileclicked",
             tilex: eventData.target.tilex,
@@ -365,9 +369,16 @@ function moveUnitToTile(message) {
 // Performs a single frame move towards the target destination for a sprite
 // Returns whether the destination has been reached
 function executeMoveStep(message) {
-	
+	if (!message || !message.unit || message.unit.id === undefined || !message.tile) {
+		return true;
+	}
+
 	var targetUnit = sprites.get(message.unit.id);
 	var targetContainer = spriteContainers.get(message.unit.id);
+
+	if (!targetUnit || !targetContainer) {
+		return false;
+	}
 	
 	if (message.unit.animation != "move") {
 		targetUnit.stopAnimation();
@@ -395,7 +406,7 @@ function executeMoveStep(message) {
 
 	//console.log("d:"+dx+" "+dy);
 
-    if ((dx+dy) > 0) {
+    if ((dx + dy) > 0) {
         
 		if (message.yfirst == true) {
 			if (dy>0) {
@@ -449,11 +460,22 @@ function executeMoveStep(message) {
 		dx = Math.abs(targetContainer.position.x - spriteX);
 		dy = Math.abs(targetContainer.position.y - spriteY);
 		
+		if ((dx + dy) <= moveVelocity) {
+			targetContainer.position.x = spriteX;
+			targetContainer.position.y = spriteY;
+		}
+
 		return false
     } else {
 
 	  var sprite = sprites.get(message.unit.id);
+	  if (!sprite) {
+	  	return true;
+	  }
+
 	  sprite.stopAnimation();
+	  targetContainer.position.vx = 0;
+	  targetContainer.position.vy = 0;
 
 	  ws.send(JSON.stringify({
     		messagetype: "unitstopped",
