@@ -19,6 +19,8 @@ public class AIController {
     private static final int ACTION_CARD_BONUS = 80;
     private static final int ACTION_MOVE_BONUS = 0;
     private static final int DANGER_HEALTH_THRESHOLD = 8;
+    private static final int AI_MOVE_ANIMATION_WAIT_MS = 1800;
+    private static final int AI_NON_MOVE_WAIT_MS = 350;
 
     private enum ActionType {
         ATTACK,
@@ -145,7 +147,7 @@ public class AIController {
                 break;
             }
 
-            Thread.sleep(bestAction.type == ActionType.MOVE ? 250 : 350);
+            Thread.sleep(bestAction.type == ActionType.MOVE ? AI_MOVE_ANIMATION_WAIT_MS : AI_NON_MOVE_WAIT_MS);
         }
     }
 

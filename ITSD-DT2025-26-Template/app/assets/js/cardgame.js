@@ -354,8 +354,12 @@ function moveUnit(unitID, xTile, yTile) {
 }
 
 function moveUnitToTile(message) {
-	
-	activeMoves.set(message.unitID, message);
+	var moveKey = message.unit && message.unit.id !== undefined ? message.unit.id : message.unitID;
+	if (moveKey === undefined) {
+		return;
+	}
+
+	activeMoves.set(moveKey, message);
 }
 
 // Performs a single frame move towards the target destination for a sprite

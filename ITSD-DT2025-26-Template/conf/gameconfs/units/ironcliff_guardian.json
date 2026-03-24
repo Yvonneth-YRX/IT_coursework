@@ -114,8 +114,8 @@
     "imgWidth" : 80,
     "imgHeight" : 80,
     "scale": 1.5,
-    "offsetX": 28,
-    "offsetY": -14,
+    "offsetX": -4,
+    "offsetY": -6,
     "spriteTopLeftX" : 0,
     "spriteTopLeftY" : 0,
     "reflected" : true
