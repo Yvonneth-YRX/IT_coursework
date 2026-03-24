@@ -275,7 +275,7 @@ function checkGameResult() {
 	}
 }
 
-function bgClicked(eventData) {
+function bgClicked() {
 	ws.send(JSON.stringify({
     		messagetype: "otherclicked"
   	}));
@@ -290,7 +290,7 @@ function drawTile(message) {
 		tile.show(message.mode);
 		
 	} else {
-		var tile = g.sprite(message.tile.tileTextures);
+		tile = g.sprite(message.tile.tileTextures);
     	tile.setPosition(message.tile.xpos, message.tile.ypos);
     	tile.width = message.tile.width;
     	tile.height = message.tile.height;
@@ -346,7 +346,7 @@ function drawCard(message) {
 	
 	var cardSprite = g.sprite(message.card.miniCard.animationFrames);
 	
-	if (message.mode==0) {
+	if (message.mode === 0) {
 		cardSprite.show(message.card.miniCard.index);
 	} else {
 		cardSprite.playAnimation();
@@ -603,7 +603,7 @@ function executeMoveStep(message) {
 		return false;
 	}
 	
-	if (message.unit.animation != "move") {
+	if (message.unit.animation !== "move") {
 		targetUnit.stopAnimation();
 		
 		ws.send(JSON.stringify({
@@ -631,7 +631,7 @@ function executeMoveStep(message) {
 
     if ((dx + dy) > 0) {
         
-		if (message.yfirst == true) {
+		if (message.yfirst === true) {
 			if (dy>0) {
 				if (dy>0) {
 					if (targetContainer.position.y - spriteY < 0) {
@@ -784,9 +784,6 @@ function executeProjectileMoveStep(projectile) {
 		}
 
 		g.move(projectile.position);
-		
-		dx = Math.abs(projectile.position.x - spriteX);
-		dy = Math.abs(projectile.position.y - spriteY);
 		
 		return false
     } else {
@@ -948,7 +945,7 @@ function renderEndTurnButton() {
 	
 }
 
-function endturnClicked(eventData) {
+function endturnClicked() {
 	ws.send(JSON.stringify({
     		messagetype: "endturnclicked"
   	}));
