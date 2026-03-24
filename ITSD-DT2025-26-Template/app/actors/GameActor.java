@@ -182,9 +182,15 @@ public class GameActor extends AbstractActor {
 		}
 
 		if (deck.isEmpty()) return;
-		if (hand.size() >= 6) return; // hand cap
 
 		Card drawnCard = deck.remove(0);
+
+		if (hand.size() >= 6) {
+			String owner = player == 1 ? "You" : "AI";
+			String cardName = drawnCard == null ? "a card" : drawnCard.getCardname();
+			BasicCommands.addPlayer1Notification(out, owner + " overdrew and burned " + cardName, 2);
+			return;
+		}
 
 		hand.add(drawnCard);
 		int handPosition = hand.size(); // 1-based for UI
