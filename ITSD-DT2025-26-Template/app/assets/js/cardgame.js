@@ -1,3 +1,12 @@
+let startOverlay = null;
+let startOverlayPulse = 0;
+let startScreenShown = false;
+let resultOverlay = null;
+let resultOverlayPulse = 0;
+let gameResult = null;
+let gameResultArmed = false;
+let autoStartNextGame = false;
+
 function initHexi(preloadImages) {
 	
 	//1. Setting up and starting Hexi
@@ -50,6 +59,220 @@ function setup() {
 
   //Set the game state to `play` to start the game loop
   g.state = play;
+}
+
+function createOverlayButton(label, x, y, width, height, clickHandler) {
+	var buttonContainer = new PIXI.Container();
+	buttonContainer.interactive = true;
+	buttonContainer.buttonMode = true;
+	buttonContainer.on('click', clickHandler);
+
+	var buttonSprite = g.sprite("assets/game/extra/ui/button_primary.png");
+	buttonSprite.setPosition(0, 0);
+	buttonSprite.width = width;
+	buttonSprite.height = height;
+	buttonContainer.addChild(buttonSprite);
+
+	var buttonText = new PIXI.Text(label, { font: '32px Roboto', fill: 'white', align: 'center' });
+	buttonText.anchor.set(0.5, 0.5);
+	buttonText.position.x = width / 2;
+	buttonText.position.y = height / 2;
+	buttonContainer.addChild(buttonText);
+
+	buttonContainer.position.x = x;
+	buttonContainer.position.y = y;
+	return buttonContainer;
+}
+
+function consumeAutoStartFlag() {
+	if (autoStartNextGame) {
+		return true;
+	}
+
+	try {
+		if (window.sessionStorage.getItem("autoStartNextGame") === "true") {
+			window.sessionStorage.removeItem("autoStartNextGame");
+			autoStartNextGame = true;
+			return true;
+		}
+	} catch (error) {
+		console.log(error);
+	}
+
+	return false;
+}
+
+function showStartOverlay() {
+	if (startOverlay !== null) {
+		return;
+	}
+
+	var overlay = new PIXI.Container();
+
+	var mask = new PIXI.Graphics();
+	mask.beginFill(0x05070d, 0.88);
+	mask.drawRect(0, 0, stageWidth, stageHeight);
+	mask.endFill();
+	mask.interactive = true;
+	overlay.addChild(mask);
+
+	var panel = new PIXI.Graphics();
+	panel.beginFill(0x142238, 0.96);
+	panel.lineStyle(6, 0xc7a75d, 1);
+	panel.drawRoundedRect(0, 0, 760, 360, 24);
+	panel.endFill();
+	panel.position.x = 580;
+	panel.position.y = 250;
+	overlay.addChild(panel);
+
+	var title = new PIXI.Text('START GAME', { font: '72px Roboto', fill: '#f5e6b4', fontWeight: 'bold' });
+	title.anchor.set(0.5, 0.5);
+	title.position.x = stageWidth / 2;
+	title.position.y = 380;
+	overlay.addChild(title);
+
+	var subtitle = new PIXI.Text('Press the button to begin the match.', { font: '28px Roboto', fill: '#d9e3f0', align: 'center' });
+	subtitle.anchor.set(0.5, 0.5);
+	subtitle.position.x = stageWidth / 2;
+	subtitle.position.y = 485;
+	overlay.addChild(subtitle);
+
+	var startButton = createOverlayButton('Start Game', 760, 560, 400, 96, startGameClicked);
+	overlay.addChild(startButton);
+
+	overlay.banner = title;
+	overlay.panel = panel;
+	startOverlay = overlay;
+	startOverlayPulse = 0;
+	g.stage.addChild(overlay);
+}
+
+function hideStartOverlay() {
+	if (startOverlay === null) {
+		return;
+	}
+
+	g.stage.removeChild(startOverlay);
+	startOverlay = null;
+}
+
+function startGameClicked() {
+	hideStartOverlay();
+
+	if (gameStart) {
+		return;
+	}
+
+	ws.send(JSON.stringify({
+		messagetype: "initalize"
+	}));
+
+	gameStart = true;
+	gameResult = null;
+	gameResultArmed = false;
+	renderPlayer1Card();
+	renderPlayer2Card();
+	renderEndTurnButton();
+}
+
+function showResultOverlay(result) {
+	if (resultOverlay !== null || gameResult !== null) {
+		return;
+	}
+
+	gameResult = result;
+
+	var overlay = new PIXI.Container();
+
+	var mask = new PIXI.Graphics();
+	mask.beginFill(0x020202, 0.82);
+	mask.drawRect(0, 0, stageWidth, stageHeight);
+	mask.endFill();
+	mask.interactive = true;
+	overlay.addChild(mask);
+
+	var panel = new PIXI.Graphics();
+	var accent = result === "win" ? 0x58c46b : 0xd35d6e;
+	panel.beginFill(0x111827, 0.96);
+	panel.lineStyle(6, accent, 1);
+	panel.drawRoundedRect(0, 0, 820, 400, 28);
+	panel.endFill();
+	panel.position.x = 550;
+	panel.position.y = 220;
+	overlay.addChild(panel);
+
+	var titleText = result === "win" ? 'VICTORY' : 'DEFEAT';
+	var subtitleText = result === "win" ? 'Player 2 has been defeated.' : 'Player 1 has been defeated.';
+	var titleColor = result === "win" ? '#c8ffd1' : '#ffd0d6';
+
+	var title = new PIXI.Text(titleText, { font: '96px Roboto', fill: titleColor, fontWeight: 'bold' });
+	title.anchor.set(0.5, 0.5);
+	title.position.x = stageWidth / 2;
+	title.position.y = 365;
+	overlay.addChild(title);
+
+	var subtitle = new PIXI.Text(subtitleText, { font: '30px Roboto', fill: '#e5e7eb' });
+	subtitle.anchor.set(0.5, 0.5);
+	subtitle.position.x = stageWidth / 2;
+	subtitle.position.y = 465;
+	overlay.addChild(subtitle);
+
+	var restartButton = createOverlayButton('Restart Game', 760, 540, 400, 96, restartGameClicked);
+	overlay.addChild(restartButton);
+
+	overlay.banner = title;
+	overlay.panel = panel;
+	resultOverlay = overlay;
+	resultOverlayPulse = 0;
+	g.stage.addChild(overlay);
+}
+
+function restartGameClicked() {
+	try {
+		window.sessionStorage.setItem("autoStartNextGame", "true");
+	} catch (error) {
+		console.log(error);
+	}
+
+	window.location.reload();
+}
+
+function updateOverlayAnimations() {
+	if (startOverlay !== null) {
+		startOverlayPulse = startOverlayPulse + 0.05;
+		startOverlay.banner.scale.x = 1 + (Math.sin(startOverlayPulse) * 0.03);
+		startOverlay.banner.scale.y = 1 + (Math.sin(startOverlayPulse) * 0.03);
+		startOverlay.panel.alpha = 0.9 + (Math.sin(startOverlayPulse * 0.8) * 0.05);
+	}
+
+	if (resultOverlay !== null) {
+		resultOverlayPulse = resultOverlayPulse + 0.06;
+		resultOverlay.banner.scale.x = 1 + (Math.sin(resultOverlayPulse) * 0.025);
+		resultOverlay.banner.scale.y = 1 + (Math.sin(resultOverlayPulse) * 0.025);
+		resultOverlay.panel.alpha = 0.9 + (Math.sin(resultOverlayPulse * 0.7) * 0.06);
+	}
+}
+
+function checkGameResult() {
+	if (gameResult !== null || player1Health === null || player2Health === null) {
+		return;
+	}
+
+	var player1Value = parseInt(player1Health.text, 10);
+	var player2Value = parseInt(player2Health.text, 10);
+
+	if (!gameResultArmed) {
+		if (!isNaN(player1Value) && !isNaN(player2Value) && player1Value > 0 && player2Value > 0) {
+			gameResultArmed = true;
+		}
+		return;
+	}
+
+	if (!isNaN(player1Value) && player1Value <= 0) {
+		showResultOverlay("lose");
+	} else if (!isNaN(player2Value) && player2Value <= 0) {
+		showResultOverlay("win");
+	}
 }
 
 function bgClicked(eventData) {
@@ -838,10 +1061,12 @@ function renderPlayer2Card() {
 
 function setPlayer1Health(message) {
 	player1Health.text = message.player.health;
+	checkGameResult();
 }
 
 function setPlayer2Health(message) {
 	player2Health.text = message.player.health;
+	checkGameResult();
 }
 
 function setPlayer1Mana(message) {
@@ -966,16 +1191,19 @@ function play(){
   //game logic
 
   if (gameActorInitalized) {
-	
-	if (!gameStart) {
-		ws.send(JSON.stringify({
-    		messagetype: "initalize"
-  		}));
-        gameStart = true;
+	if (!startScreenShown) {
+		startScreenShown = true;
 
-		renderPlayer1Card();
-		renderPlayer2Card();
-		renderEndTurnButton();
+		if (consumeAutoStartFlag()) {
+			startGameClicked();
+		} else {
+			showStartOverlay();
+		}
+	}
+
+	if (!gameStart) {
+		updateOverlayAnimations();
+		return;
 	}
 	
 	// Draw Tile Actions
@@ -1050,6 +1278,8 @@ function play(){
 		}
 		playingEffects[i].killCountdown = playingEffects[i].killCountdown-1;
     }
+
+	updateOverlayAnimations();
 	
 
 	sinceLastHeartbeat = sinceLastHeartbeat + 1;
