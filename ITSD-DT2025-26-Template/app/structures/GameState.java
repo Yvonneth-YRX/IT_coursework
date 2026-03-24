@@ -461,7 +461,12 @@ public class GameState {
 
 	public boolean isUnitStunned(Unit unit) {
 		if (unit == null) return false;
-		return stunnedUntilTurn.containsKey(unit.getId());
+		Integer stunTurn = stunnedUntilTurn.get(unit.getId());
+		return stunTurn != null && turnNumber <= stunTurn;
+	}
+
+	private void clearDeathResolutionCache() {
+		deathResolvedThisStep.clear();
 	}
 
 	public void stunUnitUntilNextTurn(Unit unit) {
@@ -686,15 +691,29 @@ public class GameState {
 			return new ArrayList<>();
 		}
 
-		Card card = unit.getCard();
-
 		if (hasFlying(unit)) {
 			List<BoardCell> result = new ArrayList<>();
-			for (BoardCell cell : allCells) {
-				if (cell.isEmpty()) {
-					result.add(cell);
+			BoardCell origin = getCellForUnit(unit);
+			if (origin == null) return result;
+
+			int x = origin.getX();
+			int y = origin.getY();
+
+			// Allow movement within a 2-grid range (unobstructed)
+			for (int dx = -2; dx <= 2; dx++) {
+				for (int dy = -2; dy <= 2; dy++) {
+					if (dx == 0 && dy == 0) continue;
+
+					int nx = x + dx;
+					int ny = y + dy;
+
+					BoardCell cell = getCell(nx, ny);
+					if (cell != null && cell.isEmpty()) {
+						result.add(cell);
+					}
 				}
 			}
+
 			return result;
 		}
 
@@ -839,6 +858,7 @@ public class GameState {
 		}
 
 		clearSelection(out);
+		clearDeathResolutionCache();
 		return true;
 	}
 
@@ -990,12 +1010,15 @@ public class GameState {
 			unit.setPositionByTile(targetCell.getTile());
 			registerUnit(unit, currentPlayer, card.getCardname());
 
-			triggerOpeningGambit(out, unit);
-
+			// Draw the summoned unit first
 			BasicCommands.drawUnit(out, unit, targetCell.getTile());
 			Thread.sleep(50);
 			BasicCommands.setUnitHealth(out, unit, unit.getHealth());
 			BasicCommands.setUnitAttack(out, unit, unit.getAttack());
+			Thread.sleep(50);
+
+			// Then trigger Opening Gambit effects
+			triggerOpeningGambit(out, unit);
 
 			if (!hasRush(card)) {
 				setMovedThisTurn(unit, true);
@@ -1006,6 +1029,7 @@ public class GameState {
 			removeCardFromCurrentHand(out, selectedHandPosition);
 
 			clearSelection(out);
+			clearDeathResolutionCache();
 			return true;
 
 		} catch (Exception e) {
@@ -1115,6 +1139,7 @@ public class GameState {
 			spendMana(out, currentPlayer, card.getManacost());
 			removeCardFromCurrentHand(out, selectedHandPosition);
 			clearSelection(out);
+			clearDeathResolutionCache();
 			return true;
 
 		} catch (Exception e) {
@@ -1197,10 +1222,16 @@ public class GameState {
 	private void removeCardFromCurrentHand(ActorRef out, int handPosition) {
 		List<Card> hand = getCurrentPlayerHand();
 		int index = handPosition - 1;
-		if (index >= 0 && index < hand.size()) {
-			hand.remove(index);
+
+		if (index < 0 || index >= hand.size()) return;
+
+		hand.remove(index);
+
+		for (int i = index; i < hand.size(); i++) {
+			BasicCommands.drawCard(out, hand.get(i), i + 1, currentPlayer - 1);
 		}
-		redrawPlayerHand(out, currentPlayer);
+
+		BasicCommands.deleteCard(out, hand.size() + 1);
 	}
 
 	private void spendMana(ActorRef out, int player, int amount) {
@@ -1304,29 +1335,64 @@ public class GameState {
 
 		triggerDeathwatchEffects(out, unit);
 
-		unitOwners.remove(unit.getId());
-		unitCardNames.remove(unit.getId());
-		movedThisTurn.remove(unit.getId());
-		attackedThisTurn.remove(unit.getId());
-		stunnedUntilTurn.remove(unit.getId());
+		removeUnitState(unit);
 		return true;
+	}
+
+	private void removeUnitState(Unit unit) {
+		if (unit == null) return;
+
+		int id = unit.getId();
+
+		unitOwners.remove(id);
+		unitCardNames.remove(id);
+		movedThisTurn.remove(id);
+		attackedThisTurn.remove(id);
+		stunnedUntilTurn.remove(id);
 	}
 
 	private void triggerDeathwatchEffects(ActorRef out, Unit deadUnit) {
 		for (BoardCell cell : allCells) {
 			if (!cell.isOccupied()) continue;
+
 			Unit watcher = cell.getOccupant();
 			if (watcher == deadUnit) continue;
 
 			String name = getUnitCardName(watcher);
+
+			// Bad Omen: whenever ANY unit dies, gain +1 attack
 			if (name.equals("bad omen")) {
 				watcher.setAttack(watcher.getAttack() + 1);
 				BasicCommands.setUnitAttack(out, watcher, watcher.getAttack());
-			} else if (name.equals("shadow watcher")) {
+			}
+
+			// Shadow Watcher: whenever ANY unit dies, gain +1 attack and +1 health
+			else if (name.equals("shadow watcher")) {
 				watcher.setAttack(watcher.getAttack() + 1);
 				watcher.setHealth(watcher.getHealth() + 1);
 				watcher.setMaxHealth(watcher.getMaxHealth() + 1);
+
 				BasicCommands.setUnitAttack(out, watcher, watcher.getAttack());
+				BasicCommands.setUnitHealth(out, watcher, watcher.getHealth());
+			}
+
+			// Bloodmoon Priestess: whenever ANY unit dies, summon one Wraithling nearby
+			else if (name.equals("bloodmoon priestess")) {
+				summonRandomWraithling(out, watcher);
+			}
+
+			// Shadowdancer: whenever ANY unit dies, deal 1 damage to enemy avatar and heal self by 1
+			else if (name.equals("shadowdancer")) {
+				Unit enemyAvatar = (getUnitOwner(watcher) == 1) ? player2Avatar : player1Avatar;
+
+				// damage enemy avatar
+				enemyAvatar.setHealth(enemyAvatar.getHealth() - 1);
+				BasicCommands.setUnitHealth(out, enemyAvatar, enemyAvatar.getHealth());
+				syncAvatarHealthIfNeeded(out, enemyAvatar);
+
+				// heal self (not above max health)
+				int newHealth = Math.min(watcher.getMaxHealth(), watcher.getHealth() + 1);
+				watcher.setHealth(newHealth);
 				BasicCommands.setUnitHealth(out, watcher, watcher.getHealth());
 			}
 		}
@@ -1428,84 +1494,6 @@ public class GameState {
 	// ---------------------------------------------------------------------
 	// Card
 	// ---------------------------------------------------------------------
-	private void triggerDeathwatch(ActorRef out) {
-
-		for (BoardCell cell : allCells) {
-
-			Unit unit = cell.getOccupant();
-
-			if (unit == null) continue;
-
-			Card card = unit.getCard();
-
-			if (card == null) continue;
-
-			if (card.getAbilities() == null) continue;
-
-			for (Ability ability : card.getAbilities()) {
-
-				if (!ability.getTrigger().equals("UNIT_DIED")) continue;
-
-				// Bad Omen
-				if (ability.getEffectType().equals("GAIN_ATTACK")) {
-
-					int newAttack = unit.getAttack() + ability.getAmount();
-					unit.setAttack(newAttack);
-
-					BasicCommands.setUnitAttack(out, unit, newAttack);
-				}
-
-				// Shadow Watcher
-				if (ability.getEffectType().equals("GAIN_ATTACK_HEALTH")) {
-
-					int newAttack = unit.getAttack() + ability.getAmount();
-					int newHealth = unit.getHealth() + ability.getAmount();
-					int newMaxHealth = unit.getMaxHealth() + ability.getAmount();
-
-					unit.setAttack(newAttack);
-					unit.setHealth(newHealth);
-					unit.setMaxHealth(newMaxHealth);
-
-					BasicCommands.setUnitAttack(out, unit, newAttack);
-					BasicCommands.setUnitHealth(out, unit, newHealth);
-				}
-
-				// Bloodmoon Priestess
-				if (ability.getEffectType().equals("SUMMON_WRAITHLING")) {
-
-					summonRandomWraithling(out, unit);
-				}
-
-				// Shadowdancer
-				if (ability.getEffectType().equals("DRAIN_ENEMY_AVATAR")) {
-
-					Unit enemyAvatar;
-					Unit self = unit;
-
-					if (getUnitOwner(self) == 1) {
-						enemyAvatar = player2Avatar;
-					} else {
-						enemyAvatar = player1Avatar;
-					}
-
-					// enemy hero damage
-					enemyAvatar.setHealth(enemyAvatar.getHealth() - ability.getAmount());
-					BasicCommands.setUnitHealth(out, enemyAvatar, enemyAvatar.getHealth());
-
-					syncAvatarHealthIfNeeded(out, enemyAvatar);
-
-					// heal self
-					int heal = ability.getAmount();
-					int newHealth = Math.min(self.getMaxHealth(), self.getHealth() + heal);
-
-					self.setHealth(newHealth);
-					BasicCommands.setUnitHealth(out, self, newHealth);
-				}
-
-			}
-		}
-	}
-
 	private void summonRandomWraithling(ActorRef out, Unit priestess) {
 
 		BoardCell cell = getCellForUnit(priestess);
@@ -1579,7 +1567,6 @@ public class GameState {
 			if (ability.getEffectType().equals("BUFF_ADJACENT_TO_AVATAR")) {
 				buffAdjacentToAvatar(out, unit, ability.getAmount());
 			}
-
 		}
 	}
 
@@ -1607,7 +1594,6 @@ public class GameState {
 		if (spawnCell == null || !spawnCell.isEmpty()) return;
 
 		try {
-
 			Unit token = BasicObjectBuilders.loadUnit(
 					StaticConfFiles.wraithling,
 					allocateUnitId(),
@@ -1622,11 +1608,10 @@ public class GameState {
 			registerUnit(token, owner, "Wraithling");
 
 			BasicCommands.drawUnit(out, token, spawnCell.getTile());
-
 			Thread.sleep(50);
-
 			BasicCommands.setUnitHealth(out, token, token.getHealth());
 			BasicCommands.setUnitAttack(out, token, token.getAttack());
+			Thread.sleep(50);
 
 			setMovedThisTurn(token, true);
 			setAttackedThisTurn(token, true);
@@ -1760,7 +1745,6 @@ public class GameState {
 
 			if (getUnitOwner(target) != owner) continue;
 
-			// ===== buff =====
 			int newAttack = target.getAttack() + amount;
 			int newHealth = target.getHealth() + amount;
 			int newMaxHealth = target.getMaxHealth() + amount;
