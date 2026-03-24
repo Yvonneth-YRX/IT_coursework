@@ -25,5 +25,14 @@
 		"health": 2
 	},
 	"isCreature": true,
-	"unitConfig": "conf/gameconfs/units/nightsorrow_assassin.json"
+	"unitConfig": "conf/gameconfs/units/nightsorrow_assassin.json",
+
+    "abilities": [
+      {
+        "trigger": "SUMMONED",
+        "effectType": "DESTROY_DAMAGED_ENEMY",
+        "amount": 0
+      }
+    ]
+
 }

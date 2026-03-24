@@ -63,17 +63,33 @@ public class TileClicked implements EventProcessor {
 		// -----------------------------------------------------------------
 		Unit selectedUnit = gameState.getSelectedUnit();
 
-		if (selectedUnit != null) {
-			if (clickedCell.isEmpty()) {
-				if (gameState.moveSelectedUnitTo(out, clickedCell)) {
-					return;
-				}
-			} else {
-				if (gameState.attackSelectedTarget(out, clickedCell)) {
-					return;
-				}
-			}
-		}
+        if (selectedUnit != null) {
+            if (clickedCell.isEmpty() && gameState.isProvoked(selectedUnit)) {
+                BasicCommands.addPlayer1Notification(out, "This unit is provoked!", 2);
+                return;
+            }
+
+            if (clickedCell.isEmpty()) {
+                if (gameState.moveSelectedUnitTo(out, clickedCell)) {
+                    return;
+                }
+            } else {
+
+                if (gameState.isProvoked(selectedUnit)) {
+
+                    Unit target = clickedCell.getOccupant();
+
+                    if (target == null || !target.isProvoke()) {
+                        BasicCommands.addPlayer1Notification(out, "Must attack Provoke unit!", 2);
+                        return;
+                    }
+                }
+
+                if (gameState.attackSelectedTarget(out, clickedCell)) {
+                    return;
+                }
+            }
+        }
 
 		if (clickedCell.isOccupied()) {
 			Unit clickedUnit = clickedCell.getOccupant();
