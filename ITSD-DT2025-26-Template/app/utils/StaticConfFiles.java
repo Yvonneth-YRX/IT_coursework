@@ -25,6 +25,7 @@ public class StaticConfFiles {
 	public final static String f1_buff = "conf/gameconfs/effects/f1_buff.json";
 	public final static String f1_martyrdom = "conf/gameconfs/effects/f1_martyrdom.json";
 	public final static String f1_projectiles = "conf/gameconfs/effects/f1_projectiles.json";
+	public final static String f1_soulshatter = "conf/gameconfs/effects/f1_soulshatter.json";
 	public final static String f1_summon = "conf/gameconfs/effects/f1_summon.json";
 
     // Human cards

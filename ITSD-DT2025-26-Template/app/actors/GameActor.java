@@ -169,8 +169,7 @@ public class GameActor extends AbstractActor {
         Collections.shuffle(gameState.getPlayer2Deck());
     }
 
-	// General card-drawing method
-	public static void drawCard(ActorRef out, GameState gameState, int player) {
+	private static void drawCard(ActorRef out, GameState gameState, int player, boolean renderToClient) {
 		List<Card> deck;
 		List<Card> hand;
 
@@ -190,19 +189,25 @@ public class GameActor extends AbstractActor {
 		hand.add(drawnCard);
 		int handPosition = hand.size(); // 1-based for UI
 
-		// mode: 0 left side, 1 right side
-		BasicCommands.drawCard(out, drawnCard, handPosition, player - 1);
+		if (renderToClient) {
+			BasicCommands.drawCard(out, drawnCard, handPosition, player - 1);
+		}
+	}
+
+	// General card-drawing method
+	public static void drawCard(ActorRef out, GameState gameState, int player) {
+		drawCard(out, gameState, player, player == 1);
 	}
 
     public static void drawStartingHand(ActorRef out, GameState gameState) {
         // Human plyer
         for (int i = 0; i < 3; i++) {
-            drawCard(out, gameState, 1);
+            drawCard(out, gameState, 1, true);
         }
 
         // AI
         for (int i = 0; i < 3; i++) {
-            drawCard(out, gameState, 2);
+            drawCard(out, gameState, 2, false);
         }
     }
 
