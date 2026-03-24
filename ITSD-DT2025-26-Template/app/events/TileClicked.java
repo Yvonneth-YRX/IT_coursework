@@ -12,13 +12,13 @@ import structures.board.BoardCell;
  * Indicates that the user has clicked an object on the game canvas, in this case a tile.
  * The event returns the x (horizontal) and y (vertical) indices of the tile that was
  * clicked. Tile indices start at 1.
- * 
- * { 
+ *
+ * {
  *   messageType = “tileClicked”
  *   tilex = <x index of the tile>
  *   tiley = <y index of the tile>
  * }
- * 
+ *
  * @author Dr. Richard McCreadie
  *
  */
@@ -45,6 +45,11 @@ public class TileClicked implements EventProcessor {
 			return;
 		}
 
+		if (gameState.isInputLocked()) {
+			BasicCommands.addPlayer1Notification(out, "Wait for the current action to finish", 2);
+			return;
+		}
+
 		// -----------------------------------------------------------------
 		// 1) If a card is selected, resolve summon / spell first
 		// -----------------------------------------------------------------
@@ -52,8 +57,8 @@ public class TileClicked implements EventProcessor {
 			if (gameState.tryResolveCardActionAt(out, clickedCell)) {
 				return;
 			} else {
-				// clicked somewhere invalid while card selected -> clear card selection
-				gameState.clearSelection(out);
+				// clicked somewhere invalid while card selected -> keep the current card selected
+				BasicCommands.addPlayer1Notification(out, "Invalid target", 2);
 				return;
 			}
 		}
@@ -63,33 +68,33 @@ public class TileClicked implements EventProcessor {
 		// -----------------------------------------------------------------
 		Unit selectedUnit = gameState.getSelectedUnit();
 
-        if (selectedUnit != null) {
-            if (clickedCell.isEmpty() && gameState.isProvoked(selectedUnit)) {
-                BasicCommands.addPlayer1Notification(out, "This unit is provoked!", 2);
-                return;
-            }
+		if (selectedUnit != null) {
+			if (clickedCell.isEmpty() && gameState.isProvoked(selectedUnit)) {
+				BasicCommands.addPlayer1Notification(out, "This unit is provoked!", 2);
+				return;
+			}
 
-            if (clickedCell.isEmpty()) {
-                if (gameState.moveSelectedUnitTo(out, clickedCell)) {
-                    return;
-                }
-            } else {
+			if (clickedCell.isEmpty()) {
+				if (gameState.moveSelectedUnitTo(out, clickedCell)) {
+					return;
+				}
+			} else {
 
-                if (gameState.isProvoked(selectedUnit)) {
+				if (gameState.isProvoked(selectedUnit)) {
 
-                    Unit target = clickedCell.getOccupant();
+					Unit target = clickedCell.getOccupant();
 
-                    if (target == null || !target.isProvoke()) {
-                        BasicCommands.addPlayer1Notification(out, "Must attack Provoke unit!", 2);
-                        return;
-                    }
-                }
+					if (target == null || !target.isProvoke()) {
+						BasicCommands.addPlayer1Notification(out, "Must attack Provoke unit!", 2);
+						return;
+					}
+				}
 
-                if (gameState.attackSelectedTarget(out, clickedCell)) {
-                    return;
-                }
-            }
-        }
+				if (gameState.attackSelectedTarget(out, clickedCell)) {
+					return;
+				}
+			}
+		}
 
 		if (clickedCell.isOccupied()) {
 			Unit clickedUnit = clickedCell.getOccupant();

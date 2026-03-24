@@ -19,8 +19,9 @@ public class AIController {
     private static final int ACTION_CARD_BONUS = 80;
     private static final int ACTION_MOVE_BONUS = 0;
     private static final int DANGER_HEALTH_THRESHOLD = 8;
-    private static final int AI_MOVE_ANIMATION_WAIT_MS = 1800;
+    private static final int AI_MOVE_ANIMATION_WAIT_MS = 1200;
     private static final int AI_NON_MOVE_WAIT_MS = 350;
+    private static final int MAX_ACTIONS_PER_TURN = 6;
 
     private enum ActionType {
         ATTACK,
@@ -111,7 +112,8 @@ public class AIController {
     }
 
     private static void takeBestActions(ActorRef out, GameState gameState) throws Exception {
-        while (!gameState.isGameOver() && gameState.getCurrentPlayer() == AI_OWNER) {
+        int actionCount = 0;
+        while (!gameState.isGameOver() && gameState.getCurrentPlayer() == AI_OWNER && actionCount < MAX_ACTIONS_PER_TURN) {
             ActionChoice bestAction = chooseBestAction(gameState);
             if (bestAction == null) {
                 break;
@@ -147,6 +149,7 @@ public class AIController {
                 break;
             }
 
+            actionCount++;
             Thread.sleep(bestAction.type == ActionType.MOVE ? AI_MOVE_ANIMATION_WAIT_MS : AI_NON_MOVE_WAIT_MS);
         }
     }
