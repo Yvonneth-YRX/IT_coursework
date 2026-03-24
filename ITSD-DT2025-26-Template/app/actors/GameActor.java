@@ -111,6 +111,11 @@ public class GameActor extends AbstractActor {
 	 */
 	@SuppressWarnings({"deprecation"})
 	public void processMessage(String messageType, JsonNode message) throws Exception{
+		if ("restartgame".equals(messageType)) {
+			gameState = new GameState();
+			new Initalize().processEvent(out, gameState, message);
+			return;
+		}
 
 		EventProcessor processor = eventProcessors.get(messageType);
 		if (processor==null) {
