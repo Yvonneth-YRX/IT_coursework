@@ -99,6 +99,11 @@ public class GameState {
 
 	private int nextUnitId = 100;
 
+	// ---- queued move-then-attack ----
+	private Integer pendingFollowUpAttackUnitId = null;
+	private Integer pendingFollowUpAttackTargetX = null;
+	private Integer pendingFollowUpAttackTargetY = null;
+
 	private enum SelectionMode {
 		NONE,
 		UNIT,
@@ -258,6 +263,17 @@ public class GameState {
 
 		if (movingUnits.isEmpty()) {
 			inputLocked = false;
+
+			if (!gameOver && pendingFollowUpAttackUnitId != null && pendingFollowUpAttackTargetX != null && pendingFollowUpAttackTargetY != null) {
+				if (unitId == pendingFollowUpAttackUnitId.intValue()) {
+					BoardCell queuedTarget = getCell(pendingFollowUpAttackTargetX, pendingFollowUpAttackTargetY);
+					clearPendingFollowUpAttack();
+					if (queuedTarget != null) {
+						attackSelectedTarget(out, queuedTarget);
+					}
+				}
+			}
+			
 			if (pendingEndTurn && !gameOver) {
 				pendingEndTurn = false;
 				TurnSystem.endTurn(out, this);
@@ -612,6 +628,7 @@ public class GameState {
 		selectedMoveCells.clear();
 		selectedAttackCells.clear();
 		selectedCardTargetCells.clear();
+		clearPendingFollowUpAttack();
 
 		clearAllHighlights(out);
 
@@ -860,6 +877,66 @@ public class GameState {
 		clearSelection(out);
 		clearDeathResolutionCache();
 		return true;
+	}
+
+	// ---------------------------------------------------------------------
+	// Move-then-attack helper
+	// ---------------------------------------------------------------------
+
+	public boolean tryMoveThenAttackSelectedTarget(ActorRef out, BoardCell targetCell) {
+		if (selectedUnit == null || targetCell == null || !targetCell.isOccupied()) return false;
+		if (hasMovedThisTurn(selectedUnit) || hasAttackedThisTurn(selectedUnit)) return false;
+		if (isProvoked(selectedUnit) && !hasProvoke(targetCell.getOccupant())) return false;
+
+		BoardCell moveCell = findMoveCellThatCanAttack(selectedUnit, targetCell);
+		if (moveCell == null) return false;
+
+		queueFollowUpAttack(selectedUnit, targetCell);
+		boolean moved = moveSelectedUnitTo(out, moveCell);
+		if (!moved) {
+			clearPendingFollowUpAttack();
+		}
+		return moved;
+	}
+
+	private BoardCell findMoveCellThatCanAttack(Unit unit, BoardCell targetCell) {
+		if (unit == null || targetCell == null || !targetCell.isOccupied()) return null;
+
+		BoardCell origin = getCellForUnit(unit);
+		if (origin == null) return null;
+
+		BoardCell best = null;
+		int bestScore = Integer.MIN_VALUE;
+
+		for (BoardCell candidate : getValidMoveCells(unit)) {
+			if (!areAdjacent(candidate, targetCell, true)) continue;
+
+			int score = 0;
+			int deltaToTarget = Math.abs(candidate.getX() - targetCell.getX()) + Math.abs(candidate.getY() - targetCell.getY());
+			int deltaFromOrigin = Math.abs(candidate.getX() - origin.getX()) + Math.abs(candidate.getY() - origin.getY());
+			score -= deltaToTarget * 10;
+			score -= deltaFromOrigin;
+
+			if (best == null || score > bestScore) {
+				best = candidate;
+				bestScore = score;
+			}
+		}
+
+		return best;
+	}
+
+	private void queueFollowUpAttack(Unit attacker, BoardCell targetCell) {
+		if (attacker == null || targetCell == null) return;
+		pendingFollowUpAttackUnitId = attacker.getId();
+		pendingFollowUpAttackTargetX = targetCell.getX();
+		pendingFollowUpAttackTargetY = targetCell.getY();
+	}
+
+	private void clearPendingFollowUpAttack() {
+		pendingFollowUpAttackUnitId = null;
+		pendingFollowUpAttackTargetX = null;
+		pendingFollowUpAttackTargetY = null;
 	}
 
 	// ---------------------------------------------------------------------
