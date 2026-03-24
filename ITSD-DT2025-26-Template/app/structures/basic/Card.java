@@ -1,5 +1,7 @@
 package structures.basic;
 
+import java.util.List;
+
 
 /**
  * This is the base representation of a Card which is rendered in the player's hand.
@@ -22,6 +24,8 @@ public class Card {
 	
 	boolean isCreature;
 	String unitConfig;
+
+    List<Ability> abilities;
 	
 	public Card() {};
 	
@@ -84,6 +88,13 @@ public class Card {
 	public void setUnitConfig(String unitConfig) {
 		this.unitConfig = unitConfig;
 	}
+    public List<Ability> getAbilities() {
+        return abilities;
+    }
+
+    public void setAbilities(List<Ability> abilities) {
+        this.abilities = abilities;
+    }
 
 	
 }

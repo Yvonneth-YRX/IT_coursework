@@ -25,5 +25,14 @@
 		"health": 3
 	},
 	"isCreature": true,
-	"unitConfig": "conf/gameconfs/units/bloodmoon_priestess.json"
+	"unitConfig": "conf/gameconfs/units/bloodmoon_priestess.json",
+
+    "abilities": [
+      {
+        "trigger": "UNIT_DIED",
+        "effectType": "SUMMON_WRAITHLING",
+        "amount": 1
+      }
+    ]
+
 }

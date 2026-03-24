@@ -23,5 +23,13 @@
 		"health": 4
 	},
 	"isCreature": true,
-	"unitConfig": "conf/gameconfs/units/shadowdancer.json"
+	"unitConfig": "conf/gameconfs/units/shadowdancer.json",
+
+    "abilities": [
+      {
+        "trigger": "UNIT_DIED",
+        "effectType": "DRAIN_ENEMY_AVATAR",
+        "amount": 1
+      }
+    ]
 }

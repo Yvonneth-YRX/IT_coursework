@@ -42,7 +42,11 @@ public class TurnSystem {
 
             // after AI finishes, automatically end AI turn
             if (!gameState.isGameOver() && gameState.getCurrentPlayer() == 2) {
-                endTurn(out, gameState);
+                if (gameState.isInputLocked() || gameState.hasMovingUnits()) {
+                    gameState.queueEndTurn();
+                } else {
+                    endTurn(out, gameState);
+                }
             }
         }
 
@@ -53,6 +57,10 @@ public class TurnSystem {
     public static void endTurn(ActorRef out, GameState gameState) {
 
         if (gameState.isGameOver()) return;
+        if (gameState.isInputLocked() || gameState.hasMovingUnits()) {
+            gameState.queueEndTurn();
+            return;
+        }
 
         System.out.println("[TURN] endTurn start, currentPlayer = " + gameState.getCurrentPlayer());
 

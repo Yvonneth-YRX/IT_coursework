@@ -25,5 +25,13 @@
 		"health": 1
 	},
 	"isCreature": true,
-	"unitConfig": "conf/gameconfs/units/gloom_chaser.json"
+	"unitConfig": "conf/gameconfs/units/gloom_chaser.json",
+
+    "abilities": [
+      {
+        "trigger": "SUMMONED",
+        "effectType": "SUMMON_WRAITHLING_BEHIND",
+        "amount": 1
+      }
+    ]
 }

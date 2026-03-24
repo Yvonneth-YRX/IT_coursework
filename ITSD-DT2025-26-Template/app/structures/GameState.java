@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
 
 import akka.actor.ActorRef;
 import commands.BasicCommands;
@@ -17,8 +18,11 @@ import structures.basic.Tile;
 import structures.basic.Unit;
 import structures.board.BoardCell;
 import structures.board.BoardCell.Highlight;
+import structures.basic.Ability;
 import utils.BasicObjectBuilders;
 import utils.StaticConfFiles;
+
+
 
 /**
  * Holds the ongoing game state (server-side).
@@ -52,6 +56,20 @@ public class GameState {
 	private int turnNumber = 1;
 	private boolean gameOver = false;
 
+	// ---- Input / animation lock ----
+	private boolean inputLocked = false;
+	private boolean pendingEndTurn = false;
+	private long lastActionAtMs = 0L;
+	private static final long INPUT_LOCK_TIMEOUT_MS = 2200L;
+	private final Set<Integer> movingUnits = new LinkedHashSet<>();
+
+	// ---- Artifacts ----
+	private boolean player1HornActive = false;
+	private boolean player2HornActive = false;
+
+	private int player1HornDurability = 0;
+	private int player2HornDurability = 0;
+
 	// ---- Deck / Hand ----
 	private List<Card> player1Deck = new ArrayList<>();
 	private List<Card> player2Deck = new ArrayList<>();
@@ -73,6 +91,11 @@ public class GameState {
 	private final List<BoardCell> selectedMoveCells = new ArrayList<>();
 	private final List<BoardCell> selectedAttackCells = new ArrayList<>();
 	private final List<BoardCell> selectedCardTargetCells = new ArrayList<>();
+
+	// ---- Card click debounce ----
+	private long lastCardSelectionAtMs = 0L;
+
+	private final Set<Integer> deathResolvedThisStep = new HashSet<>();
 
 	private int nextUnitId = 100;
 
@@ -98,6 +121,9 @@ public class GameState {
 	public int getCurrentPlayer() { return currentPlayer; }
 	public int getTurnNumber() { return turnNumber; }
 	public boolean isGameOver() { return gameOver; }
+	public boolean isInputLocked() { return inputLocked; }
+	public boolean hasPendingEndTurn() { return pendingEndTurn; }
+	public boolean hasMovingUnits() { return !movingUnits.isEmpty(); }
 
 	public List<Card> getPlayer1Deck() { return player1Deck; }
 	public List<Card> getPlayer2Deck() { return player2Deck; }
@@ -106,6 +132,8 @@ public class GameState {
 
 	public Unit getSelectedUnit() { return selectedUnit; }
 	public Card getSelectedCard() { return selectedCard; }
+	public boolean hasSelectedCard() { return selectedCard != null; }
+	public long getLastCardSelectionAtMs() { return lastCardSelectionAtMs; }
 
 	public Player getCurrentPlayerObject() {
 		return currentPlayer == 1 ? player1 : player2;
@@ -123,6 +151,66 @@ public class GameState {
 		return currentPlayer == 1 ? player1Deck : player2Deck;
 	}
 
+	public List<Unit> getUnits() {
+		List<Unit> units = new ArrayList<>();
+		for (BoardCell cell : allCells) {
+			if (cell.isOccupied()) {
+				units.add(cell.getOccupant());
+			}
+		}
+		return units;
+	}
+
+	public void equipHorn(int player) {
+		if (player == 1) {
+			player1HornActive = true;
+			player1HornDurability = 3;
+		} else {
+			player2HornActive = true;
+			player2HornDurability = 3;
+		}
+	}
+
+	public boolean hasHorn(int player) {
+		if (player == 1) {
+			return player1HornActive;
+		} else {
+			return player2HornActive;
+		}
+	}
+
+	public int getHornDurability(int player) {
+		if (player == 1) {
+			return player1HornDurability;
+		} else {
+			return player2HornDurability;
+		}
+	}
+
+	public void reduceHornDurability(ActorRef out, int player) {
+		if (player == 1) {
+			if (!player1HornActive) return;
+
+			player1HornDurability = player1HornDurability - 1;
+
+			if (player1HornDurability <= 0) {
+				player1HornActive = false;
+				player1HornDurability = 0;
+				BasicCommands.addPlayer1Notification(out, "Player 1 Horn destroyed", 2);
+			}
+		} else {
+			if (!player2HornActive) return;
+
+			player2HornDurability = player2HornDurability - 1;
+
+			if (player2HornDurability <= 0) {
+				player2HornActive = false;
+				player2HornDurability = 0;
+				BasicCommands.addPlayer1Notification(out, "Player 2 Horn destroyed", 2);
+			}
+		}
+	}
+
 	public void switchPlayer() {
 		currentPlayer = (currentPlayer == 1) ? 2 : 1;
 	}
@@ -133,6 +221,63 @@ public class GameState {
 
 	public void setGameOver(boolean gameOver) {
 		this.gameOver = gameOver;
+	}
+
+	public void queueEndTurn() {
+		pendingEndTurn = true;
+	}
+
+	public void clearQueuedEndTurn() {
+		pendingEndTurn = false;
+	}
+
+	public void noteActionIssued() {
+		lastActionAtMs = System.currentTimeMillis();
+	}
+
+	public void lockInputForUnit(int unitId) {
+		inputLocked = true;
+		lastActionAtMs = System.currentTimeMillis();
+		if (unitId > 0) {
+			movingUnits.add(unitId);
+		}
+	}
+
+	public void onUnitMoving(int unitId) {
+		if (unitId <= 0) return;
+		inputLocked = true;
+		lastActionAtMs = System.currentTimeMillis();
+		movingUnits.add(unitId);
+	}
+
+	public void onUnitStopped(ActorRef out, int unitId) {
+		if (unitId > 0) {
+			movingUnits.remove(unitId);
+		}
+		lastActionAtMs = System.currentTimeMillis();
+
+		if (movingUnits.isEmpty()) {
+			inputLocked = false;
+			if (pendingEndTurn && !gameOver) {
+				pendingEndTurn = false;
+				TurnSystem.endTurn(out, this);
+			}
+		}
+	}
+
+	public void onHeartbeat(ActorRef out) {
+		if (inputLocked) {
+			long now = System.currentTimeMillis();
+			if (now - lastActionAtMs > INPUT_LOCK_TIMEOUT_MS) {
+				movingUnits.clear();
+				inputLocked = false;
+			}
+		}
+
+		if (!inputLocked && pendingEndTurn && !gameOver) {
+			pendingEndTurn = false;
+			TurnSystem.endTurn(out, this);
+		}
 	}
 
 	public int allocateUnitId() {
@@ -432,7 +577,6 @@ public class GameState {
 			return;
 		}
 
-		redrawPlayerHand(out, player);
 		List<Card> hand = (player == 1) ? player1Hand : player2Hand;
 		int index = handPosition - 1;
 		if (index >= 0 && index < hand.size()) {
@@ -440,7 +584,21 @@ public class GameState {
 		}
 	}
 
+	public void drawHandCardNormal(ActorRef out, int player, int handPosition) {
+		if (player != 1) {
+			return;
+		}
+
+		List<Card> hand = (player == 1) ? player1Hand : player2Hand;
+		int index = handPosition - 1;
+		if (index >= 0 && index < hand.size()) {
+			BasicCommands.drawCard(out, hand.get(index), handPosition, 0);
+		}
+	}
+
 	public void clearSelection(ActorRef out) {
+		int oldHandPosition = selectedHandPosition;
+
 		selectedUnit = null;
 		selectedCard = null;
 		selectedHandPosition = -1;
@@ -451,6 +609,10 @@ public class GameState {
 		selectedCardTargetCells.clear();
 
 		clearAllHighlights(out);
+
+		if (currentPlayer == 1 && oldHandPosition >= 1) {
+			drawHandCardNormal(out, 1, oldHandPosition);
+		}
 	}
 
 	// ---------------------------------------------------------------------
@@ -520,6 +682,22 @@ public class GameState {
 	}
 
 	public List<BoardCell> getValidMoveCells(Unit unit) {
+		if (unit == null || isProvoked(unit)) {
+			return new ArrayList<>();
+		}
+
+		Card card = unit.getCard();
+
+		if (hasFlying(unit)) {
+			List<BoardCell> result = new ArrayList<>();
+			for (BoardCell cell : allCells) {
+				if (cell.isEmpty()) {
+					result.add(cell);
+				}
+			}
+			return result;
+		}
+
 		List<BoardCell> result = new ArrayList<>();
 		BoardCell origin = getCellForUnit(unit);
 		if (origin == null) return result;
@@ -590,6 +768,7 @@ public class GameState {
 		destination.trySetOccupant(selectedUnit);
 		selectedUnit.setPositionByTile(destination.getTile());
 
+		lockInputForUnit(selectedUnit.getId());
 		BasicCommands.moveUnitToTile(out, selectedUnit, destination.getTile());
 		setMovedThisTurn(selectedUnit, true);
 
@@ -628,6 +807,16 @@ public class GameState {
 		}
 
 		applyDamageToUnit(out, defender, attacker.getAttack());
+
+		// Horn trigger: avatar dealt damage
+		if (attacker == player1Avatar && hasHorn(1)) {
+			summonRandomAdjacentWraithlingToAvatar(out, player1Avatar, 1);
+		}
+
+		if (attacker == player2Avatar && hasHorn(2)) {
+			summonRandomAdjacentWraithlingToAvatar(out, player2Avatar, 2);
+		}
+
 		setAttackedThisTurn(attacker, true);
 
 		boolean defenderDied = handleUnitDeathIfNeeded(out, defender);
@@ -658,17 +847,24 @@ public class GameState {
 	// ---------------------------------------------------------------------
 
 	public void selectCard(ActorRef out, Card card, int handPosition) {
+		int previousHandPosition = selectedHandPosition;
+
 		selectedUnit = null;
 		selectedMoveCells.clear();
 		selectedAttackCells.clear();
 
 		selectedCard = card;
 		selectedHandPosition = handPosition;
+		lastCardSelectionAtMs = System.currentTimeMillis();
 		selectedCardTargetCells.clear();
 
 		if (card == null) {
 			clearSelection(out);
 			return;
+		}
+
+		if (currentPlayer == 1 && previousHandPosition >= 1 && previousHandPosition != handPosition) {
+			drawHandCardNormal(out, 1, previousHandPosition);
 		}
 
 		if (card.getIsCreature()) {
@@ -738,12 +934,11 @@ public class GameState {
 		}
 
 		if (name.equals("horn of the forsaken")) {
+			// no target needed, use avatar tile as a dummy selectable tile
 			Unit avatar = (currentPlayer == 1) ? player1Avatar : player2Avatar;
 			BoardCell avatarCell = getCellForUnit(avatar);
 			if (avatarCell != null) {
-				for (BoardCell adj : getAdjacentCells(avatarCell.getX(), avatarCell.getY(), true)) {
-					if (adj.isEmpty()) result.add(adj);
-				}
+				result.add(avatarCell);
 			}
 			return result;
 		}
@@ -757,7 +952,9 @@ public class GameState {
 			if (name.equals("truestrike")) {
 				if (owner != currentPlayer) result.add(cell);
 			} else if (name.equals("beamshock")) {
-				if (owner != currentPlayer) result.add(cell);
+				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
+					result.add(cell);
+				}
 			} else if (name.equals("dark terminus")) {
 				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
 					result.add(cell);
@@ -778,21 +975,32 @@ public class GameState {
 
 		try {
 			Unit unit = BasicObjectBuilders.loadUnit(card.getUnitConfig(), allocateUnitId(), Unit.class);
+			unit.setCard(card);
 			applyCardStatsToUnit(card, unit);
+
+			if (card.getCardname().equals("Rock Pulveriser") ||
+					card.getCardname().equals("Swamp Entangler") ||
+					card.getCardname().equals("Silverguard Knight") ||
+					card.getCardname().equals("Ironcliffe Guardian")) {
+
+				unit.setProvoke(true);
+			}
 
 			targetCell.trySetOccupant(unit);
 			unit.setPositionByTile(targetCell.getTile());
 			registerUnit(unit, currentPlayer, card.getCardname());
+
+			triggerOpeningGambit(out, unit);
 
 			BasicCommands.drawUnit(out, unit, targetCell.getTile());
 			Thread.sleep(50);
 			BasicCommands.setUnitHealth(out, unit, unit.getHealth());
 			BasicCommands.setUnitAttack(out, unit, unit.getAttack());
 
-			resolveOpeningGambit(out, unit);
-
-			setMovedThisTurn(unit, true);
-			setAttackedThisTurn(unit, true);
+			if (!hasRush(card)) {
+				setMovedThisTurn(unit, true);
+				setAttackedThisTurn(unit, true);
+			}
 
 			spendMana(out, currentPlayer, card.getManacost());
 			removeCardFromCurrentHand(out, selectedHandPosition);
@@ -820,16 +1028,15 @@ public class GameState {
 				handleUnitDeathIfNeeded(out, targetCell.getOccupant());
 			} else if (name.equals("beamshock")) {
 				if (!targetCell.isOccupied()) return false;
+
 				Unit target = targetCell.getOccupant();
+
+				if (target == player1Avatar || target == player2Avatar) return false;
+
 				playSpellEffect(out, targetCell, StaticConfFiles.f1_buff);
 				stunUnitUntilNextTurn(target);
-				if (target == player1Avatar) {
-					BasicCommands.addPlayer1Notification(out, "Your avatar was stunned by Beamshock. No damage dealt.", 3);
-				} else if (target == player2Avatar) {
-					BasicCommands.addPlayer1Notification(out, "AI avatar was stunned by Beamshock. No damage dealt.", 3);
-				} else {
-					BasicCommands.addPlayer1Notification(out, "Beamshock: target stunned", 2);
-				}
+
+				BasicCommands.addPlayer1Notification(out, "Beamshock: target stunned", 2);
 			} else if (name.equals("sundrop elixir")) {
 				if (!targetCell.isOccupied()) return false;
 				Unit target = targetCell.getOccupant();
@@ -839,16 +1046,23 @@ public class GameState {
 				syncAvatarHealthIfNeeded(out, target);
 			} else if (name.equals("dark terminus")) {
 				if (!targetCell.isOccupied()) return false;
+
 				Unit victim = targetCell.getOccupant();
+
 				if (getUnitOwner(victim) == currentPlayer) return false;
 				if (victim == player1Avatar || victim == player2Avatar) return false;
 
-				targetCell.clearOccupant();
 				victim.setHealth(0);
 				handleUnitDeathIfNeeded(out, victim);
 
-				Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
+				Unit token = BasicObjectBuilders.loadUnit(
+						StaticConfFiles.wraithling,
+						allocateUnitId(),
+						Unit.class
+				);
+
 				applyTokenStats(token, 1, 1);
+
 				targetCell.trySetOccupant(token);
 				token.setPositionByTile(targetCell.getTile());
 				registerUnit(token, currentPlayer);
@@ -860,18 +1074,21 @@ public class GameState {
 
 				setMovedThisTurn(token, true);
 				setAttackedThisTurn(token, true);
-
 			} else if (name.equals("wraithling swarm")) {
-				List<BoardCell> summonCells = getSummonCellsNearTarget(targetCell, 3);
-				int limit = summonCells.size();
 
-				for (int i = 0; i < limit; i++) {
-					BoardCell cell = summonCells.get(i);
-					Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
+				List<BoardCell> summonCells = getSummonCellsNearTarget(targetCell, 3);
+				for (BoardCell cell : summonCells) {
+					Unit token = BasicObjectBuilders.loadUnit(
+							StaticConfFiles.wraithling,
+							allocateUnitId(),
+							Unit.class
+					);
+
 					applyTokenStats(token, 1, 1);
+
 					cell.trySetOccupant(token);
 					token.setPositionByTile(cell.getTile());
-					registerUnit(token, currentPlayer);
+					registerUnit(token, currentPlayer, "Wraithling");
 
 					BasicCommands.drawUnit(out, token, cell.getTile());
 					Thread.sleep(50);
@@ -882,25 +1099,15 @@ public class GameState {
 					setAttackedThisTurn(token, true);
 				}
 			} else if (name.equals("horn of the forsaken")) {
-				// Simplified temporary implementation:
-				// summon 1 wraithling adjacent to your avatar.
-				if (targetCell == null || !targetCell.isEmpty()) return false;
 
-				Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
-				applyTokenStats(token, 1, 1);
-				targetCell.trySetOccupant(token);
-				token.setPositionByTile(targetCell.getTile());
-				registerUnit(token, currentPlayer);
+				equipHorn(currentPlayer);
 
-				BasicCommands.drawUnit(out, token, targetCell.getTile());
-				Thread.sleep(50);
-				BasicCommands.setUnitHealth(out, token, token.getHealth());
-				BasicCommands.setUnitAttack(out, token, token.getAttack());
+				if (currentPlayer == 1) {
+					BasicCommands.addPlayer1Notification(out, "Player 1 equipped Horn (3 durability)", 2);
+				} else {
+					BasicCommands.addPlayer1Notification(out, "Player 2 equipped Horn (3 durability)", 2);
+				}
 
-				setMovedThisTurn(token, true);
-				setAttackedThisTurn(token, true);
-
-				BasicCommands.addPlayer1Notification(out, "Horn: simplified summon version", 2);
 			} else {
 				return false;
 			}
@@ -1013,9 +1220,44 @@ public class GameState {
 
 	private void applyDamageToUnit(ActorRef out, Unit unit, int amount) {
 		if (unit == null) return;
+
 		unit.setHealth(unit.getHealth() - amount);
 		BasicCommands.setUnitHealth(out, unit, unit.getHealth());
+
+		// ===== Silverguard Knight Zeal =====
+		if (unit == player1Avatar || unit == player2Avatar) {
+
+			int damagedPlayer = (unit == player1Avatar) ? 1 : 2;
+
+			for (BoardCell cell : allCells) {
+				if (!cell.isOccupied()) continue;
+
+				Unit u = cell.getOccupant();
+				Card c = u.getCard();
+
+				if (c == null) continue;
+
+				if (c.getCardname().equals("Silverguard Knight") &&
+						getUnitOwner(u) == damagedPlayer) {
+
+					int newAttack = u.getAttack() + 2;
+					u.setAttack(newAttack);
+
+					BasicCommands.setUnitAttack(out, u, newAttack);
+				}
+			}
+		}
+
 		syncAvatarHealthIfNeeded(out, unit);
+
+		// Horn durability loss when avatar takes damage
+		if (unit == player1Avatar && hasHorn(1)) {
+			reduceHornDurability(out, 1);
+		}
+
+		if (unit == player2Avatar && hasHorn(2)) {
+			reduceHornDurability(out, 2);
+		}
 	}
 
 	private void syncAvatarHealthIfNeeded(ActorRef out, Unit unit) {
@@ -1030,6 +1272,9 @@ public class GameState {
 
 	public boolean handleUnitDeathIfNeeded(ActorRef out, Unit unit) {
 		if (unit == null || unit.getHealth() > 0) return false;
+		if (deathResolvedThisStep.contains(unit.getId())) return false;
+
+		deathResolvedThisStep.add(unit.getId());
 
 		BoardCell cell = getCellForUnit(unit);
 		if (cell != null) {
@@ -1058,64 +1303,13 @@ public class GameState {
 		}
 
 		triggerDeathwatchEffects(out, unit);
+
 		unitOwners.remove(unit.getId());
 		unitCardNames.remove(unit.getId());
 		movedThisTurn.remove(unit.getId());
 		attackedThisTurn.remove(unit.getId());
 		stunnedUntilTurn.remove(unit.getId());
 		return true;
-	}
-
-	private void resolveOpeningGambit(ActorRef out, Unit unit) {
-		String name = getUnitCardName(unit);
-		if (name.equals("gloom chaser")) {
-			summonWraithlingBehind(out, unit);
-		} else if (name.equals("nightsorrow assassin")) {
-			destroyAdjacentDamagedEnemy(out, unit);
-		}
-	}
-
-	private void summonWraithlingBehind(ActorRef out, Unit unit) {
-		BoardCell cell = getCellForUnit(unit);
-		if (cell == null) return;
-
-		int dx = getUnitOwner(unit) == 1 ? -1 : 1;
-		BoardCell behind = getCell(cell.getX() + dx, cell.getY());
-		if (behind == null || !behind.isEmpty()) return;
-
-		try {
-			Unit token = BasicObjectBuilders.loadUnit(StaticConfFiles.wraithling, allocateUnitId(), Unit.class);
-			applyTokenStats(token, 1, 1);
-			behind.trySetOccupant(token);
-			token.setPositionByTile(behind.getTile());
-			registerUnit(token, getUnitOwner(unit), "wraithling");
-
-			BasicCommands.drawUnit(out, token, behind.getTile());
-			Thread.sleep(50);
-			BasicCommands.setUnitHealth(out, token, token.getHealth());
-			BasicCommands.setUnitAttack(out, token, token.getAttack());
-
-			setMovedThisTurn(token, true);
-			setAttackedThisTurn(token, true);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	private void destroyAdjacentDamagedEnemy(ActorRef out, Unit unit) {
-		BoardCell cell = getCellForUnit(unit);
-		if (cell == null) return;
-
-		for (BoardCell adj : getAdjacentCells(cell.getX(), cell.getY(), true)) {
-			if (!adj.isOccupied()) continue;
-			Unit target = adj.getOccupant();
-			if (getUnitOwner(target) == getUnitOwner(unit)) continue;
-			if (target.getHealth() >= target.getMaxHealth()) continue;
-
-			target.setHealth(0);
-			handleUnitDeathIfNeeded(out, target);
-			return;
-		}
 	}
 
 	private void triggerDeathwatchEffects(ActorRef out, Unit deadUnit) {
@@ -1139,11 +1333,21 @@ public class GameState {
 	}
 
 	private boolean hasProvoke(Unit unit) {
+		if (unit == null) return false;
+		if (unit.isProvoke()) return true;
 		String name = getUnitCardName(unit);
 		return name.equals("rock pulveriser")
 				|| name.equals("swamp entangler")
 				|| name.equals("silverguard knight")
-				|| name.equals("ironcliff guardian");
+				|| name.equals("ironcliffe guardian");
+	}
+
+	private boolean hasFlying(Unit unit) {
+		return normalizeCardName(unit == null ? null : unit.getCard()).equals("young flamewing");
+	}
+
+	private boolean hasRush(Card card) {
+		return normalizeCardName(card).equals("saberspine tiger");
 	}
 
 	// ---------------------------------------------------------------------
@@ -1220,4 +1424,354 @@ public class GameState {
 		}
 		return " on " + targetDescription;
 	}
+
+	// ---------------------------------------------------------------------
+	// Card
+	// ---------------------------------------------------------------------
+	private void triggerDeathwatch(ActorRef out) {
+
+		for (BoardCell cell : allCells) {
+
+			Unit unit = cell.getOccupant();
+
+			if (unit == null) continue;
+
+			Card card = unit.getCard();
+
+			if (card == null) continue;
+
+			if (card.getAbilities() == null) continue;
+
+			for (Ability ability : card.getAbilities()) {
+
+				if (!ability.getTrigger().equals("UNIT_DIED")) continue;
+
+				// Bad Omen
+				if (ability.getEffectType().equals("GAIN_ATTACK")) {
+
+					int newAttack = unit.getAttack() + ability.getAmount();
+					unit.setAttack(newAttack);
+
+					BasicCommands.setUnitAttack(out, unit, newAttack);
+				}
+
+				// Shadow Watcher
+				if (ability.getEffectType().equals("GAIN_ATTACK_HEALTH")) {
+
+					int newAttack = unit.getAttack() + ability.getAmount();
+					int newHealth = unit.getHealth() + ability.getAmount();
+					int newMaxHealth = unit.getMaxHealth() + ability.getAmount();
+
+					unit.setAttack(newAttack);
+					unit.setHealth(newHealth);
+					unit.setMaxHealth(newMaxHealth);
+
+					BasicCommands.setUnitAttack(out, unit, newAttack);
+					BasicCommands.setUnitHealth(out, unit, newHealth);
+				}
+
+				// Bloodmoon Priestess
+				if (ability.getEffectType().equals("SUMMON_WRAITHLING")) {
+
+					summonRandomWraithling(out, unit);
+				}
+
+				// Shadowdancer
+				if (ability.getEffectType().equals("DRAIN_ENEMY_AVATAR")) {
+
+					Unit enemyAvatar;
+					Unit self = unit;
+
+					if (getUnitOwner(self) == 1) {
+						enemyAvatar = player2Avatar;
+					} else {
+						enemyAvatar = player1Avatar;
+					}
+
+					// enemy hero damage
+					enemyAvatar.setHealth(enemyAvatar.getHealth() - ability.getAmount());
+					BasicCommands.setUnitHealth(out, enemyAvatar, enemyAvatar.getHealth());
+
+					syncAvatarHealthIfNeeded(out, enemyAvatar);
+
+					// heal self
+					int heal = ability.getAmount();
+					int newHealth = Math.min(self.getMaxHealth(), self.getHealth() + heal);
+
+					self.setHealth(newHealth);
+					BasicCommands.setUnitHealth(out, self, newHealth);
+				}
+
+			}
+		}
+	}
+
+	private void summonRandomWraithling(ActorRef out, Unit priestess) {
+
+		BoardCell cell = getCellForUnit(priestess);
+		if (cell == null) {
+			System.out.println("summonRandomWraithling: priestess cell is null");
+			return;
+		}
+
+		List<BoardCell> adjacent = getAdjacentCells(cell.getX(), cell.getY(), true);
+		List<BoardCell> emptyCells = new ArrayList<>();
+
+		for (BoardCell c : adjacent) {
+			if (c.isEmpty()) {
+				emptyCells.add(c);
+			}
+		}
+
+		System.out.println("summonRandomWraithling emptyCells size = " + emptyCells.size());
+
+		if (emptyCells.isEmpty()) return;
+
+		Collections.shuffle(emptyCells);
+		BoardCell spawnCell = emptyCells.get(0);
+
+		try {
+			Unit token = BasicObjectBuilders.loadUnit(
+					StaticConfFiles.wraithling,
+					allocateUnitId(),
+					Unit.class
+			);
+
+			applyTokenStats(token, 1, 1);
+
+			spawnCell.trySetOccupant(token);
+			token.setPositionByTile(spawnCell.getTile());
+
+			registerUnit(token, getUnitOwner(priestess), "Wraithling");
+
+			BasicCommands.drawUnit(out, token, spawnCell.getTile());
+			Thread.sleep(50);
+			BasicCommands.setUnitHealth(out, token, token.getHealth());
+			BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+			setMovedThisTurn(token, true);
+			setAttackedThisTurn(token, true);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void triggerOpeningGambit(ActorRef out, Unit unit) {
+
+		Card card = unit.getCard();
+
+		if (card == null) return;
+		if (card.getAbilities() == null) return;
+
+		for (Ability ability : card.getAbilities()) {
+
+			if (!ability.getTrigger().equals("SUMMONED")) continue;
+
+			if (ability.getEffectType().equals("SUMMON_WRAITHLING_BEHIND")) {
+				summonWraithlingBehind(out, unit);
+			}
+
+			if (ability.getEffectType().equals("DESTROY_DAMAGED_ENEMY")) {
+				destroyDamagedAdjacentEnemy(out, unit);
+			}
+
+			if (ability.getEffectType().equals("BUFF_ADJACENT_TO_AVATAR")) {
+				buffAdjacentToAvatar(out, unit, ability.getAmount());
+			}
+
+		}
+	}
+
+	private void summonWraithlingBehind(ActorRef out, Unit unit) {
+
+		BoardCell cell = getCellForUnit(unit);
+
+		if (cell == null) return;
+
+		int x = cell.getX();
+		int y = cell.getY();
+
+		int owner = getUnitOwner(unit);
+
+		int behindX;
+
+		if (owner == 1) {
+			behindX = x - 1;
+		} else {
+			behindX = x + 1;
+		}
+
+		BoardCell spawnCell = getCell(behindX, y);
+
+		if (spawnCell == null || !spawnCell.isEmpty()) return;
+
+		try {
+
+			Unit token = BasicObjectBuilders.loadUnit(
+					StaticConfFiles.wraithling,
+					allocateUnitId(),
+					Unit.class
+			);
+
+			applyTokenStats(token, 1, 1);
+
+			spawnCell.trySetOccupant(token);
+			token.setPositionByTile(spawnCell.getTile());
+
+			registerUnit(token, owner, "Wraithling");
+
+			BasicCommands.drawUnit(out, token, spawnCell.getTile());
+
+			Thread.sleep(50);
+
+			BasicCommands.setUnitHealth(out, token, token.getHealth());
+			BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+			setMovedThisTurn(token, true);
+			setAttackedThisTurn(token, true);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void destroyDamagedAdjacentEnemy(ActorRef out, Unit assassin) {
+
+		BoardCell cell = getCellForUnit(assassin);
+		if (cell == null) {
+			System.out.println("destroyDamagedAdjacentEnemy: assassin cell is null");
+			return;
+		}
+
+		int owner = getUnitOwner(assassin);
+		List<Unit> candidates = new ArrayList<>();
+
+		for (BoardCell neighbor : getAdjacentCells(cell.getX(), cell.getY(), true)) {
+
+			if (!neighbor.isOccupied()) continue;
+
+			Unit target = neighbor.getOccupant();
+
+			if (getUnitOwner(target) == owner) continue;
+
+			if (target.getHealth() < target.getMaxHealth()) {
+				candidates.add(target);
+			}
+		}
+
+		System.out.println("destroyDamagedAdjacentEnemy candidates size = " + candidates.size());
+
+		if (candidates.isEmpty()) return;
+
+		Unit victim = candidates.get(0);
+
+		victim.setHealth(0);
+		handleUnitDeathIfNeeded(out, victim);
+	}
+
+	public boolean isProvoked(Unit unit) {
+		BoardCell cell = getCellForUnit(unit);
+		if (cell == null) return false;
+		int owner = getUnitOwner(unit);
+		for (BoardCell neighbor : getAdjacentCells(cell.getX(), cell.getY(), true)) {
+			if (!neighbor.isOccupied()) continue;
+			Unit other = neighbor.getOccupant();
+			if (getUnitOwner(other) != owner && hasProvoke(other)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void summonRandomAdjacentWraithlingToAvatar(ActorRef out, Unit avatar, int owner) {
+
+		BoardCell cell = getCellForUnit(avatar);
+		if (cell == null) return;
+
+		List<BoardCell> adjacent = getAdjacentCells(cell.getX(), cell.getY(), true);
+		List<BoardCell> emptyCells = new ArrayList<>();
+
+		for (BoardCell c : adjacent) {
+			if (c.isEmpty()) {
+				emptyCells.add(c);
+			}
+		}
+
+		if (emptyCells.isEmpty()) return;
+
+		Collections.shuffle(emptyCells);
+		BoardCell spawnCell = emptyCells.get(0);
+
+		try {
+			Unit token = BasicObjectBuilders.loadUnit(
+					StaticConfFiles.wraithling,
+					allocateUnitId(),
+					Unit.class
+			);
+
+			applyTokenStats(token, 1, 1);
+
+			spawnCell.trySetOccupant(token);
+			token.setPositionByTile(spawnCell.getTile());
+
+			registerUnit(token, owner, "Wraithling");
+
+			BasicCommands.drawUnit(out, token, spawnCell.getTile());
+			Thread.sleep(50);
+			BasicCommands.setUnitHealth(out, token, token.getHealth());
+			BasicCommands.setUnitAttack(out, token, token.getAttack());
+
+			setMovedThisTurn(token, true);
+			setAttackedThisTurn(token, true);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void buffAdjacentToAvatar(ActorRef out, Unit squire, int amount) {
+
+		int owner = getUnitOwner(squire);
+
+		Unit avatar = (owner == 1) ? player1Avatar : player2Avatar;
+
+		BoardCell avatarCell = getCellForUnit(avatar);
+		if (avatarCell == null) return;
+
+		List<BoardCell> adjacent = new ArrayList<>();
+		if (owner == 1) {
+			BoardCell front = getCell(avatarCell.getX() + 1, avatarCell.getY());
+			BoardCell back = getCell(avatarCell.getX() - 1, avatarCell.getY());
+			if (front != null) adjacent.add(front);
+			if (back != null) adjacent.add(back);
+		} else {
+			BoardCell front = getCell(avatarCell.getX() - 1, avatarCell.getY());
+			BoardCell back = getCell(avatarCell.getX() + 1, avatarCell.getY());
+			if (front != null) adjacent.add(front);
+			if (back != null) adjacent.add(back);
+		}
+
+		for (BoardCell cell : adjacent) {
+
+			if (!cell.isOccupied()) continue;
+
+			Unit target = cell.getOccupant();
+
+			if (getUnitOwner(target) != owner) continue;
+
+			// ===== buff =====
+			int newAttack = target.getAttack() + amount;
+			int newHealth = target.getHealth() + amount;
+			int newMaxHealth = target.getMaxHealth() + amount;
+
+			target.setAttack(newAttack);
+			target.setHealth(newHealth);
+			target.setMaxHealth(newMaxHealth);
+
+			BasicCommands.setUnitAttack(out, target, newAttack);
+			BasicCommands.setUnitHealth(out, target, newHealth);
+		}
+	}
+
 }

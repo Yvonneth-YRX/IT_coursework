@@ -24,5 +24,13 @@
 		"health": 1
 	},
 	"isCreature": true,
-	"unitConfig": "conf/gameconfs/units/bad_omen.json"
+	"unitConfig": "conf/gameconfs/units/bad_omen.json",
+
+    "abilities": [
+      {
+        "trigger": "UNIT_DIED",
+        "effectType": "GAIN_ATTACK",
+        "amount": 1
+      }
+    ]
 }
