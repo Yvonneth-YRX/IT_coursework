@@ -1,0 +1,23 @@
+# OS files
+.DS_Store
+__MACOSX/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Scala / SBT build artifacts
+target/
+project/target/
+project/project/
+
+# Logs
+logs/
+*.log
+
+# Compiled classes
+*.class
+
+# Misc junk
+null/
