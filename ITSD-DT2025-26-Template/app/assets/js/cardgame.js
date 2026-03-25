@@ -166,6 +166,10 @@ function startGameClicked() {
 		return;
 	}
 
+	// Start each match from a clean client-side UI state so stale hand
+	// containers from an earlier session cannot remain on screen.
+	resetClientGameState();
+
 	ws.send(JSON.stringify({
 		messagetype: "initalize"
 	}));
@@ -1259,7 +1263,9 @@ function playUnitAnimation(message) {
 
 function deleteCard(message) {
 	var card = handContainers[message.position-1];
-	g.stage.removeChild(card);
+	if (card != null) {
+		g.stage.removeChild(card);
+	}
 	handContainers[message.position-1]=null;
 	handSprites[message.position-1]=null;
 	cardJSON[message.position-1]=null;

@@ -138,6 +138,7 @@ public class GameActor extends AbstractActor {
     public static void initializeDecks(GameState gameState) {
         gameState.getPlayer1Deck().clear();
         gameState.getPlayer2Deck().clear();
+        int nextCardId = 1;
 
         // ===== Human player =====
         for (String cardPath : StaticConfFiles.humanCards) {
@@ -146,7 +147,7 @@ public class GameActor extends AbstractActor {
 
                 Card card = BasicObjectBuilders.loadCard(
                         cardPath,
-                        1,
+                        nextCardId++,
                         Card.class
                 );
 
@@ -161,7 +162,7 @@ public class GameActor extends AbstractActor {
 
                 Card card = BasicObjectBuilders.loadCard(
                         cardPath,
-                        2,
+                        nextCardId++,
                         Card.class
                 );
 
