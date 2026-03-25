@@ -43,9 +43,9 @@ public class CardClicked implements EventProcessor {
 
 		if (clickedCard == null) return;
 
-		// click same card again -> unselect
+		// click same hand slot again -> unselect
 		if (gameState.getSelectedCard() != null &&
-				gameState.getSelectedCard().getId() == clickedCard.getId()) {
+				gameState.getSelectedHandPosition() == handPosition) {
 			gameState.clearSelection(out);
 			return;
 		}

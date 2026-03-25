@@ -132,6 +132,7 @@ public class GameState {
 
 	public Unit getSelectedUnit() { return selectedUnit; }
 	public Card getSelectedCard() { return selectedCard; }
+	public int getSelectedHandPosition() { return selectedHandPosition; }
 	public boolean hasSelectedCard() { return selectedCard != null; }
 	public long getLastCardSelectionAtMs() { return lastCardSelectionAtMs; }
 
@@ -886,7 +887,7 @@ public class GameState {
 
 		if (card.getIsCreature()) {
 			selectionMode = SelectionMode.CARD_SUMMON;
-			selectedCardTargetCells.addAll(getValidSummonCellsForCurrentPlayer());
+			selectedCardTargetCells.addAll(getValidSummonCellsForCurrentPlayer(card));
 			applyCardTargetHighlights(out, Highlight.VALID);
 		} else {
 			selectionMode = SelectionMode.CARD_SPELL;
@@ -926,6 +927,20 @@ public class GameState {
 	}
 
 	public List<BoardCell> getValidSummonCellsForCurrentPlayer() {
+		return getValidSummonCellsForCurrentPlayer(null);
+	}
+
+	public List<BoardCell> getValidSummonCellsForCurrentPlayer(Card card) {
+		if (hasAirdrop(card)) {
+			List<BoardCell> result = new ArrayList<>();
+			for (BoardCell cell : allCells) {
+				if (cell.isEmpty()) {
+					result.add(cell);
+				}
+			}
+			return result;
+		}
+
 		Set<BoardCell> result = new LinkedHashSet<>();
 
 		for (BoardCell cell : allCells) {
@@ -967,7 +982,9 @@ public class GameState {
 			int owner = getUnitOwner(target);
 
 			if (name.equals("truestrike")) {
-				if (owner != currentPlayer) result.add(cell);
+				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
+					result.add(cell);
+				}
 			} else if (name.equals("beamshock")) {
 				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
 					result.add(cell);
@@ -977,7 +994,9 @@ public class GameState {
 					result.add(cell);
 				}
 			} else if (name.equals("sundrop elixir")) {
-				if (owner == currentPlayer) result.add(cell);
+				if (owner == currentPlayer && target != player1Avatar && target != player2Avatar) {
+					result.add(cell);
+				}
 			}
 		}
 
@@ -998,7 +1017,7 @@ public class GameState {
 			if (card.getCardname().equals("Rock Pulveriser") ||
 					card.getCardname().equals("Swamp Entangler") ||
 					card.getCardname().equals("Silverguard Knight") ||
-					card.getCardname().equals("Ironcliffe Guardian")) {
+					card.getCardname().equals("Ironcliff Guardian")) {
 
 				unit.setProvoke(true);
 			}
@@ -1006,6 +1025,8 @@ public class GameState {
 			targetCell.trySetOccupant(unit);
 			unit.setPositionByTile(targetCell.getTile());
 			registerUnit(unit, currentPlayer, card.getCardname());
+
+			playSummonAnimation(out, targetCell);
 
 			// Draw the summoned unit first
 			BasicCommands.drawUnit(out, unit, targetCell.getTile());
@@ -1035,6 +1056,24 @@ public class GameState {
 		}
 	}
 
+	private void playSummonAnimation(ActorRef out, BoardCell targetCell) {
+		if (out == null || targetCell == null) {
+			return;
+		}
+
+		try {
+			EffectAnimation summonEffect = BasicObjectBuilders.loadEffect(StaticConfFiles.f1_summon);
+			if (summonEffect == null) {
+				return;
+			}
+
+			int waitMs = BasicCommands.playEffectAnimation(out, summonEffect, targetCell.getTile());
+			Thread.sleep(Math.max(waitMs, 150));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	private boolean castSpellCard(ActorRef out, Card card, BoardCell targetCell) {
 		Player player = getCurrentPlayerObject();
 		if (player.getMana() < card.getManacost()) return false;
@@ -1044,9 +1083,11 @@ public class GameState {
 		try {
 			if (name.equals("truestrike")) {
 				if (!targetCell.isOccupied()) return false;
+				Unit target = targetCell.getOccupant();
+				if (target == player1Avatar || target == player2Avatar) return false;
 				playSpellEffect(out, targetCell, StaticConfFiles.f1_soulshatter);
-				applyDamageToUnit(out, targetCell.getOccupant(), 2);
-				handleUnitDeathIfNeeded(out, targetCell.getOccupant());
+				applyDamageToUnit(out, target, 2);
+				handleUnitDeathIfNeeded(out, target);
 			} else if (name.equals("beamshock")) {
 				if (!targetCell.isOccupied()) return false;
 
@@ -1061,7 +1102,8 @@ public class GameState {
 			} else if (name.equals("sundrop elixir")) {
 				if (!targetCell.isOccupied()) return false;
 				Unit target = targetCell.getOccupant();
-				int newHealth = Math.min(target.getMaxHealth(), target.getHealth() + 4);
+				if (target == player1Avatar || target == player2Avatar) return false;
+				int newHealth = Math.min(target.getMaxHealth(), target.getHealth() + 5);
 				target.setHealth(newHealth);
 				BasicCommands.setUnitHealth(out, target, target.getHealth());
 				syncAvatarHealthIfNeeded(out, target);
@@ -1226,14 +1268,7 @@ public class GameState {
 
 		if (currentPlayer == 1) {
 			redrawHumanHand(out);
-			return;
 		}
-
-		for (int i = index; i < hand.size(); i++) {
-			BasicCommands.drawCard(out, hand.get(i), i + 1, currentPlayer - 1);
-		}
-
-		BasicCommands.deleteCard(out, hand.size() + 1);
 	}
 
 	private void spendMana(ActorRef out, int player, int amount) {
@@ -1407,7 +1442,7 @@ public class GameState {
 		return name.equals("rock pulveriser")
 				|| name.equals("swamp entangler")
 				|| name.equals("silverguard knight")
-				|| name.equals("ironcliffe guardian");
+				|| name.equals("ironcliff guardian");
 	}
 
 	private boolean hasFlying(Unit unit) {
@@ -1416,6 +1451,10 @@ public class GameState {
 
 	private boolean hasRush(Card card) {
 		return normalizeCardName(card).equals("saberspine tiger");
+	}
+
+	private boolean hasAirdrop(Card card) {
+		return normalizeCardName(card).equals("ironcliff guardian");
 	}
 
 	// ---------------------------------------------------------------------

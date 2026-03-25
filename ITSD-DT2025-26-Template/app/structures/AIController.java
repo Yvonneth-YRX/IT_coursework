@@ -226,7 +226,7 @@ public class AIController {
     private static List<BoardCell> getCandidateTargets(GameState gameState, Card card) {
         if (card == null) return new ArrayList<>();
         if (card.getIsCreature()) {
-            return gameState.getValidSummonCellsForCurrentPlayer();
+            return gameState.getValidSummonCellsForCurrentPlayer(card);
         }
         return gameState.getSpellTargetCellsForAI(card);
     }
