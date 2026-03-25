@@ -581,15 +581,20 @@ public class GameState {
 			return;
 		}
 
+		redrawHumanHand(out);
+	}
+
+	private void redrawHumanHand(ActorRef out) {
 		for (int pos = 1; pos <= 6; pos++) {
 			BasicCommands.deleteCard(out, pos);
 		}
 
-		List<Card> hand = (player == 1) ? player1Hand : player2Hand;
-		int mode = player - 1;
+		List<Card> hand = player1Hand;
 
 		for (int i = 0; i < hand.size() && i < 6; i++) {
-			BasicCommands.drawCard(out, hand.get(i), i + 1, mode);
+			int handPosition = i + 1;
+			int mode = (selectedCard != null && selectedHandPosition == handPosition) ? 1 : 0;
+			BasicCommands.drawCard(out, hand.get(i), handPosition, mode);
 		}
 	}
 
@@ -598,11 +603,7 @@ public class GameState {
 			return;
 		}
 
-		List<Card> hand = (player == 1) ? player1Hand : player2Hand;
-		int index = handPosition - 1;
-		if (index >= 0 && index < hand.size()) {
-			BasicCommands.drawCard(out, hand.get(index), handPosition, 1);
-		}
+		redrawHumanHand(out);
 	}
 
 	public void drawHandCardNormal(ActorRef out, int player, int handPosition) {
@@ -610,11 +611,7 @@ public class GameState {
 			return;
 		}
 
-		List<Card> hand = (player == 1) ? player1Hand : player2Hand;
-		int index = handPosition - 1;
-		if (index >= 0 && index < hand.size()) {
-			BasicCommands.drawCard(out, hand.get(index), handPosition, 0);
-		}
+		redrawHumanHand(out);
 	}
 
 	public void clearSelection(ActorRef out) {
@@ -1303,6 +1300,11 @@ public class GameState {
 		if (index < 0 || index >= hand.size()) return;
 
 		hand.remove(index);
+
+		if (currentPlayer == 1) {
+			redrawHumanHand(out);
+			return;
+		}
 
 		for (int i = index; i < hand.size(); i++) {
 			BasicCommands.drawCard(out, hand.get(i), i + 1, currentPlayer - 1);
