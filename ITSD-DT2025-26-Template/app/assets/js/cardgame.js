@@ -6,6 +6,7 @@ let resultOverlayPulse = 0;
 let gameResult = null;
 let gameResultArmed = false;
 let autoStartNextGame = false;
+let unitAnimationResetTimers = new Map();
 
 function initHexi(preloadImages) {
 	
@@ -231,19 +232,15 @@ function showResultOverlay(result) {
 }
 
 function restartGameClicked() {
-	resetClientGameState();
-	gameStart = true;
-	gameResult = null;
-	gameResultArmed = false;
-	renderPlayer1Card();
-	renderPlayer2Card();
-	renderEndTurnButton();
-
-	if (ws && ws.readyState === WebSocket.OPEN) {
-		ws.send(JSON.stringify({
-			messagetype: "restartgame"
-		}));
+	try {
+		window.sessionStorage.setItem("autoStartNextGame", "true");
+	} catch (error) {
+		console.log(error);
 	}
+
+	// Reload into a fresh websocket/game actor session so stale messages
+	// from the previous game cannot overwrite the new hand UI.
+	window.location.reload();
 }
 
 function resetClientGameState() {
@@ -405,8 +402,12 @@ function drawCard(message) {
 	cardContainer.addChild(backgroundCardImage);
 	
 	var cardSprite = g.sprite(message.card.miniCard.animationFrames);
-	
-	if (message.mode === 0) {
+
+	if (message.card.isCreature) {
+		cardSprite.fps = message.card.miniCard.fps;
+		cardSprite.loop = true;
+		cardSprite.playAnimation();
+	} else if (message.mode === 0) {
 		cardSprite.show(message.card.miniCard.index);
 	} else {
 		cardSprite.playAnimation();
@@ -686,7 +687,7 @@ function executeMoveStep(message) {
 	var targetContainer = spriteContainers.get(message.unit.id);
 
 	if (!targetUnit || !targetContainer) {
-		return false;
+		return true;
 	}
 	
 	if (message.unit.animation !== "move") {
@@ -1219,12 +1220,41 @@ function addPlayer2Notification(message) {
 function playUnitAnimation(message) {
 	
 	var targetUnit = sprites.get(message.unit.id);
+	if (!targetUnit) {
+		return;
+	}
+
+	var existingResetTimer = unitAnimationResetTimers.get(message.unit.id);
+	if (existingResetTimer) {
+		clearTimeout(existingResetTimer);
+		unitAnimationResetTimers.delete(message.unit.id);
+	}
+
 	var animationData = getFrameSet(message.unit);
 	targetUnit.loop = animationData.loop;
 	targetUnit.fps = animationData.fps;
 	targetUnit.playAnimation(animationData.frameStartEndIndices);
-	
-	
+
+	if (message.unit.animation === "death" || animationData.loop) {
+		return;
+	}
+
+	var frameCount = Math.max(1, (animationData.frameStartEndIndices[1] - animationData.frameStartEndIndices[0]) + 1);
+	var animationDurationMs = Math.max(120, Math.round((frameCount / Math.max(1, animationData.fps)) * 1000));
+	var resetTimer = setTimeout(function() {
+		var sprite = sprites.get(message.unit.id);
+		if (!sprite) {
+			unitAnimationResetTimers.delete(message.unit.id);
+			return;
+		}
+
+		sprite.loop = message.unit.animations.idle.loop;
+		sprite.fps = message.unit.animations.idle.fps;
+		sprite.playAnimation(message.unit.animations.idle.frameStartEndIndices);
+		unitAnimationResetTimers.delete(message.unit.id);
+	}, animationDurationMs);
+
+	unitAnimationResetTimers.set(message.unit.id, resetTimer);
 }
 
 function deleteCard(message) {
@@ -1240,6 +1270,11 @@ function deleteCard(message) {
 function deleteUnit(message) {
 	var unitContainer = spriteContainers.get(message.unit.id);
 	g.stage.removeChild(unitContainer);
+	var existingResetTimer = unitAnimationResetTimers.get(message.unit.id);
+	if (existingResetTimer) {
+		clearTimeout(existingResetTimer);
+		unitAnimationResetTimers.delete(message.unit.id);
+	}
 	spriteContainers.delete(message.unit.id);
 	sprites.delete(message.unit.id);
 	attackLabels.delete(message.unit.id);

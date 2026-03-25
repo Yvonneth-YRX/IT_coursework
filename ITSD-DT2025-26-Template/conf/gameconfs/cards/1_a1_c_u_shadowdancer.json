@@ -1,35 +1,43 @@
 {
-	"id": 2,
-	"cardname": "Shadowdancer",
-	"manacost": 5,
-	"miniCard": {
-		"cardTextures": [
-			"assets/game/extra/cards/card_background.png",
-			"assets/game/extra/cards/card_background_highlight.png"
-		],
-		"animationFrames": [],
-		"fps": 10,
-		"index": 0
-	},
-	"bigCard": {
-		"rulesTextRows": [
-			"Deathwatch: Deal 1 damage to the enemy",
-			"avatar and heal yourself for 1"
-		],
-		"cardTextures": [
-			"assets/game/extra/cards/neutral_unit_h.png"
-		],
-		"attack": 5,
-		"health": 4
-	},
-	"isCreature": true,
-	"unitConfig": "conf/gameconfs/units/shadowdancer.json",
-
-    "abilities": [
-      {
-        "trigger": "UNIT_DIED",
-        "effectType": "DRAIN_ENEMY_AVATAR",
-        "amount": 1
-      }
-    ]
+  "id": 2,
+  "cardname": "Shadowdancer",
+  "manacost": 5,
+  "miniCard": {
+    "cardTextures": [
+      "assets/game/extra/cards/card_background.png",
+      "assets/game/extra/cards/card_background_highlight.png"
+    ],
+    "animationFrames": [
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_000.png",
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_001.png",
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_002.png",
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_003.png",
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_004.png",
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_005.png",
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_006.png",
+      "assets/game/extra/units/f4_shadowdancer/f4_shadowdancer_idle_007.png"
+    ],
+    "fps": 8,
+    "index": 0
+  },
+  "bigCard": {
+    "rulesTextRows": [
+      "Deathwatch: Deal 1 damage to the enemy",
+      "avatar and heal yourself for 1"
+    ],
+    "cardTextures": [
+      "assets/game/extra/cards/neutral_unit_h.png"
+    ],
+    "attack": 5,
+    "health": 4
+  },
+  "isCreature": true,
+  "unitConfig": "conf/gameconfs/units/shadowdancer.json",
+  "abilities": [
+    {
+      "trigger": "UNIT_DIED",
+      "effectType": "DRAIN_ENEMY_AVATAR",
+      "amount": 1
+    }
+  ]
 }
