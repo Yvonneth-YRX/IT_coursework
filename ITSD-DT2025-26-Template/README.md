@@ -172,22 +172,22 @@ ITSD-DT2025-26-Template/
 
 ## Main Files
 
-  [`GameScreenController.java`](/Users/ynuimakoto/IdeaProjects/ITwork/ITSD-DT2025-26-Template/app/controllers/GameScreenController.java)  
+  [`GameScreenController.java`](app/controllers/GameScreenController.java)  
   Serves the game page and creates the WebSocket connection.
 
-  [`GameActor.java`](/Users/ynuimakoto/IdeaProjects/ITwork/ITSD-DT2025-26-Template/app/actors/GameActor.java)  
+  [`GameActor.java`](app/actors/GameActor.java)  
   Manages a game session, initialises decks, and routes incoming messages to the correct event processor.
 
-  [`GameState.java`](/Users/ynuimakoto/IdeaProjects/ITwork/ITSD-DT2025-26-Template/app/structures/GameState.java)  
+  [`GameState.java`](app/structures/GameState.java)  
   Contains most of the gameplay logic, including summoning, targeting, movement, attacks, death handling, and many card effects.
 
-  [`TurnSystem.java`](/Users/ynuimakoto/IdeaProjects/ITwork/ITSD-DT2025-26-Template/app/structures/TurnSystem.java)  
+  [`TurnSystem.java`](app/structures/TurnSystem.java)  
   Controls turn switching, mana refresh, and card draw.
 
-  [`AIController.java`](/Users/ynuimakoto/IdeaProjects/ITwork/ITSD-DT2025-26-Template/app/structures/AIController.java)  
+  [`AIController.java`](app/structures/AIController.java)  
   Handles AI decision-making for attacks, movement, and card play.
 
-  [`cardgame.js`](/Users/ynuimakoto/IdeaProjects/ITwork/ITSD-DT2025-26-Template/app/assets/js/cardgame.js)  
+  [`cardgame.js`](app/assets/js/cardgame.js)  
   Handles rendering, animations, input, hand display, and frontend-side game presentation.
 
 ## How the System Works
@@ -223,7 +223,7 @@ The WebSocket route used by the game is:
 
 The project currently includes a sample JUnit test:
 
-  [`InitalizationTest.java`](/Users/ynuimakoto/IdeaProjects/ITwork/ITSD-DT2025-26-Template/test/InitalizationTest.java)
+  [`InitalizationTest.java`](test/InitalizationTest.java)
 
 Tests can be run with:
 
