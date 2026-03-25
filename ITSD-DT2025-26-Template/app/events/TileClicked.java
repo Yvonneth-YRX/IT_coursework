@@ -93,6 +93,10 @@ public class TileClicked implements EventProcessor {
 				if (gameState.attackSelectedTarget(out, clickedCell)) {
 					return;
 				}
+
+				if (gameState.tryMoveThenAttackSelectedTarget(out, clickedCell)) {
+					return;
+				}
 			}
 		}
 
