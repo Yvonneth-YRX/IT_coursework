@@ -1,7 +1,6 @@
 package structures;
 
 import akka.actor.ActorRef;
-import actors.GameActor;
 import commands.BasicCommands;
 import structures.basic.Player;
 
@@ -87,7 +86,7 @@ public class TurnSystem {
         System.out.println("[TURN] switched to player = " + gameState.getCurrentPlayer());
 
         // draw 1 card for new current player
-        GameActor.drawCard(out, gameState, gameState.getCurrentPlayer());
+        GameSessionService.drawCard(out, gameState, gameState.getCurrentPlayer());
 
         // start new round
         startTurn(out, gameState);
