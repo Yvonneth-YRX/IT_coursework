@@ -7,6 +7,82 @@ let gameResult = null;
 let gameResultArmed = false;
 let autoStartNextGame = false;
 let unitAnimationResetTimers = new Map();
+let audioToggleButton = null;
+let audioToggleLabel = null;
+let gameCursorElement = null;
+
+const battleMusic = {
+	context: null,
+	masterGain: null,
+	compressor: null,
+	started: false,
+	muted: false,
+	scheduleTimer: null,
+	nextNoteTime: 0,
+	stepIndex: 0,
+	mood: "steady"
+};
+
+const battleMusicChords = [
+	{ root: 146.83, fifth: 220.0, color: 293.66, bass: 73.42 },
+	{ root: 174.61, fifth: 261.63, color: 349.23, bass: 87.31 },
+	{ root: 130.81, fifth: 196.0, color: 261.63, bass: 65.41 },
+	{ root: 196.0, fifth: 293.66, color: 392.0, bass: 98.0 }
+];
+
+const battleMusicProfiles = {
+	steady: {
+		tempo: 88,
+		baseVolume: 0.15,
+		padRoot: 0.026,
+		padFifth: 0.017,
+		padColor: 0.009,
+		bass: 0.028,
+		lead: 0.010,
+		drumAccent: 0.1,
+		drumLight: 0.055,
+		extraDrumSteps: [],
+		leadPattern: [1, 1.122, 1.335, 1.498],
+		leadWave: "square",
+		leadRelease: 0.08,
+		bassPattern: [1, 1, 1.12, 1, 1.5, 1.12, 1, 0.92],
+		tensionMultiplier: 1
+	},
+	advantage: {
+		tempo: 100,
+		baseVolume: 0.18,
+		padRoot: 0.03,
+		padFifth: 0.02,
+		padColor: 0.011,
+		bass: 0.04,
+		lead: 0.017,
+		drumAccent: 0.13,
+		drumLight: 0.075,
+		extraDrumSteps: [2, 6],
+		leadPattern: [1, 1.122, 1.335, 1.682],
+		leadWave: "square",
+		leadRelease: 0.1,
+		bassPattern: [1, 1.12, 1.5, 1.12, 1.68, 1.5, 1.12, 1],
+		tensionMultiplier: 0.985
+	},
+	danger: {
+		tempo: 94,
+		baseVolume: 0.165,
+		padRoot: 0.024,
+		padFifth: 0.016,
+		padColor: 0.012,
+		bass: 0.033,
+		lead: 0.013,
+		drumAccent: 0.115,
+		drumLight: 0.065,
+		extraDrumSteps: [6],
+		leadPattern: [1, 1.067, 1.335, 1.26],
+		leadWave: "triangle",
+		leadRelease: 0.07,
+		bassPattern: [1, 0.94, 1.12, 0.94, 1.26, 1.12, 0.94, 0.9],
+		tensionMultiplier: 1.03
+	}
+};
 
 function initHexi(preloadImages) {
 	
@@ -17,9 +93,340 @@ function initHexi(preloadImages) {
 	g.fps = 60;
 	g.border = "2px red dashed";
 	g.backgroundColor = 0x000000;
+	if (g.canvas) {
+		g.canvas.classList.add("game-canvas");
+		g.canvas.style.cursor = "none";
+		attachGameCursor(g.canvas);
+	}
 	g.scaleToWindow();
 	g.start();
 	
+}
+
+function attachGameCursor(canvas) {
+	if (!canvas) {
+		return;
+	}
+
+	if (gameCursorElement === null) {
+		gameCursorElement = document.createElement("div");
+		gameCursorElement.className = "game-ui-cursor";
+		document.body.appendChild(gameCursorElement);
+	}
+
+	function moveCursor(event) {
+		if (!gameCursorElement) {
+			return;
+		}
+
+		gameCursorElement.style.left = event.clientX + "px";
+		gameCursorElement.style.top = event.clientY + "px";
+	}
+
+	canvas.addEventListener("mouseenter", function(event) {
+		document.body.classList.add("game-cursor-active");
+		canvas.style.cursor = "none";
+		gameCursorElement.classList.add("visible");
+		moveCursor(event);
+	});
+
+	canvas.addEventListener("mousemove", moveCursor);
+
+	canvas.addEventListener("mouseleave", function() {
+		document.body.classList.remove("game-cursor-active");
+		canvas.style.cursor = "";
+		gameCursorElement.classList.remove("visible");
+		gameCursorElement.classList.remove("active");
+		gameCursorElement.style.left = "-9999px";
+		gameCursorElement.style.top = "-9999px";
+	});
+
+	canvas.addEventListener("mousedown", function() {
+		gameCursorElement.classList.add("active");
+	});
+
+	canvas.addEventListener("mouseup", function() {
+		gameCursorElement.classList.remove("active");
+	});
+}
+
+function ensureBattleMusicContext() {
+	if (battleMusic.context !== null) {
+		return battleMusic.context;
+	}
+
+	var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+	if (!AudioContextClass) {
+		return null;
+	}
+
+	var context = new AudioContextClass();
+	var compressor = context.createDynamicsCompressor();
+	var masterGain = context.createGain();
+
+	compressor.threshold.value = -24;
+	compressor.knee.value = 24;
+	compressor.ratio.value = 10;
+	compressor.attack.value = 0.003;
+	compressor.release.value = 0.25;
+
+	masterGain.gain.value = battleMusic.muted ? 0 : battleMusicProfiles[battleMusic.mood].baseVolume;
+	masterGain.connect(compressor);
+	compressor.connect(context.destination);
+
+	battleMusic.context = context;
+	battleMusic.masterGain = masterGain;
+	battleMusic.compressor = compressor;
+	return context;
+}
+
+function getBattleMusicProfile() {
+	return battleMusicProfiles[battleMusic.mood] || battleMusicProfiles.steady;
+}
+
+function scheduleSynthVoice(frequency, startTime, duration, type, peakVolume, attack, release, detune, filterMultiplier, resonance) {
+	if (!battleMusic.context || !battleMusic.masterGain) {
+		return;
+	}
+
+	var oscillator = battleMusic.context.createOscillator();
+	var voiceGain = battleMusic.context.createGain();
+	var filter = battleMusic.context.createBiquadFilter();
+
+	oscillator.type = type;
+	oscillator.frequency.setValueAtTime(frequency, startTime);
+	oscillator.detune.setValueAtTime(detune || 0, startTime);
+
+	filter.type = "lowpass";
+	filter.frequency.setValueAtTime(Math.max(220, frequency * (filterMultiplier || 6)), startTime);
+	filter.Q.value = resonance || 0.8;
+
+	voiceGain.gain.setValueAtTime(0.0001, startTime);
+	voiceGain.gain.linearRampToValueAtTime(peakVolume, startTime + attack);
+	voiceGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration + release);
+
+	oscillator.connect(filter);
+	filter.connect(voiceGain);
+	voiceGain.connect(battleMusic.masterGain);
+
+	oscillator.start(startTime);
+	oscillator.stop(startTime + duration + release + 0.05);
+}
+
+function scheduleBattleDrum(startTime, isAccent, peakVolume, pitch) {
+	if (!battleMusic.context || !battleMusic.masterGain) {
+		return;
+	}
+
+	var osc = battleMusic.context.createOscillator();
+	var gain = battleMusic.context.createGain();
+	var filter = battleMusic.context.createBiquadFilter();
+
+	osc.type = "triangle";
+	osc.frequency.setValueAtTime(pitch || (isAccent ? 96 : 82), startTime);
+	osc.frequency.exponentialRampToValueAtTime(42, startTime + 0.16);
+
+	filter.type = "lowpass";
+	filter.frequency.setValueAtTime(180, startTime);
+
+	gain.gain.setValueAtTime(0.0001, startTime);
+	gain.gain.linearRampToValueAtTime(peakVolume, startTime + 0.01);
+	gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.2);
+
+	osc.connect(filter);
+	filter.connect(gain);
+	gain.connect(battleMusic.masterGain);
+
+	osc.start(startTime);
+	osc.stop(startTime + 0.22);
+}
+
+function scheduleBattleStep(stepIndex, startTime, stepDuration) {
+	var profile = getBattleMusicProfile();
+	var chord = battleMusicChords[Math.floor(stepIndex / 8) % battleMusicChords.length];
+	var stepInBar = stepIndex % 8;
+
+	if (stepInBar === 0) {
+		scheduleSynthVoice(chord.root, startTime, stepDuration * 7.6, "triangle", profile.padRoot, 0.8, 1.2, -4, 5.4, 0.9);
+		scheduleSynthVoice(chord.fifth, startTime + 0.03, stepDuration * 7.3, "sine", profile.padFifth, 1.0, 1.3, 3, 6.4, 0.7);
+		scheduleSynthVoice(chord.color * profile.tensionMultiplier, startTime + 0.06, stepDuration * 6.8, "triangle", profile.padColor, 1.1, 1.4, 0, 5.2, 1.1);
+	}
+
+	if (stepInBar === 0 || stepInBar === 4) {
+		scheduleBattleDrum(startTime, stepInBar === 0, stepInBar === 0 ? profile.drumAccent : profile.drumLight, stepInBar === 0 ? 96 : 80);
+	}
+
+	if (profile.extraDrumSteps.indexOf(stepInBar) !== -1) {
+		scheduleBattleDrum(startTime, false, profile.drumLight * 0.92, stepInBar === 6 ? 72 : 84);
+	}
+
+	if (stepInBar % 2 === 0) {
+		scheduleSynthVoice(chord.bass * profile.bassPattern[stepInBar], startTime, stepDuration * 0.72, "sawtooth", profile.bass, 0.02, 0.16, -6, 3.4, 1.6);
+	}
+
+	if (stepInBar === 1 || stepInBar === 3 || stepInBar === 5 || stepInBar === 7) {
+		var patternIndex = ((stepInBar - 1) / 2) % profile.leadPattern.length;
+		scheduleSynthVoice(chord.root * profile.leadPattern[patternIndex], startTime, stepDuration * 0.42, profile.leadWave, profile.lead, 0.01, profile.leadRelease, 4, 8, 2.6);
+		if (battleMusic.mood === "advantage" && stepInBar === 5) {
+			scheduleSynthVoice(chord.fifth * 2, startTime + 0.02, stepDuration * 0.3, "triangle", profile.lead * 0.8, 0.01, 0.06, 0, 9, 2.1);
+		}
+		if (battleMusic.mood === "danger" && stepInBar === 7) {
+			scheduleSynthVoice(chord.color * 0.943, startTime + 0.01, stepDuration * 0.26, "triangle", profile.lead * 0.55, 0.01, 0.05, -2, 6.8, 2.9);
+		}
+	}
+}
+
+function battleMusicScheduler() {
+	if (!battleMusic.context) {
+		return;
+	}
+
+	var stepDuration = 60 / getBattleMusicProfile().tempo / 2;
+	while (battleMusic.nextNoteTime < battleMusic.context.currentTime + 0.45) {
+		scheduleBattleStep(battleMusic.stepIndex, battleMusic.nextNoteTime, stepDuration);
+		battleMusic.nextNoteTime += stepDuration;
+		battleMusic.stepIndex += 1;
+	}
+}
+
+function getBattleMusicMoodLabel() {
+	if (battleMusic.mood === "advantage") {
+		return "Music: On +";
+	}
+	if (battleMusic.mood === "danger") {
+		return "Music: On !";
+	}
+	return "Music: On =";
+}
+
+function evaluateBattleMusicMood() {
+	if (player1Health === null || player2Health === null) {
+		return "steady";
+	}
+
+	var player1Value = parseInt(player1Health.text, 10);
+	var player2Value = parseInt(player2Health.text, 10);
+	if (isNaN(player1Value) || isNaN(player2Value)) {
+		return "steady";
+	}
+
+	var healthDiff = player1Value - player2Value;
+	if (healthDiff >= 6 || (healthDiff >= 3 && player1Value >= 15)) {
+		return "advantage";
+	}
+	if (healthDiff <= -6 || (healthDiff <= -3 && player1Value <= 12)) {
+		return "danger";
+	}
+	return "steady";
+}
+
+function syncBattleMusicMood() {
+	var nextMood = evaluateBattleMusicMood();
+	if (battleMusic.mood === nextMood) {
+		return;
+	}
+
+	battleMusic.mood = nextMood;
+	if (battleMusic.masterGain && battleMusic.context && !battleMusic.muted) {
+		var profile = getBattleMusicProfile();
+		battleMusic.masterGain.gain.cancelScheduledValues(battleMusic.context.currentTime);
+		battleMusic.masterGain.gain.setTargetAtTime(profile.baseVolume, battleMusic.context.currentTime, 0.18);
+	}
+	updateAudioToggleButton();
+}
+
+function updateAudioToggleButton() {
+	if (!audioToggleButton || !audioToggleLabel) {
+		return;
+	}
+
+	audioToggleLabel.text = battleMusic.muted ? "Music: Off" : getBattleMusicMoodLabel();
+	audioToggleButton.background.clear();
+	audioToggleButton.background.beginFill(battleMusic.muted ? 0x4b5563 : 0x18324a, 0.92);
+	audioToggleButton.background.lineStyle(3, battleMusic.muted ? 0xaab4c2 : 0xd8be79, 1);
+	audioToggleButton.background.drawRoundedRect(0, 0, 210, 56, 14);
+	audioToggleButton.background.endFill();
+}
+
+function createAudioToggleButton() {
+	if (!g || !g.stage) {
+		return;
+	}
+
+	if (audioToggleButton !== null) {
+		g.stage.removeChild(audioToggleButton);
+	}
+
+	var button = new PIXI.Container();
+	button.interactive = true;
+	button.buttonMode = true;
+	button.position.x = stageWidth - 250;
+	button.position.y = 28;
+	button.on("click", toggleBattleMusicMute);
+
+	var background = new PIXI.Graphics();
+	button.background = background;
+	button.addChild(background);
+
+	var label = new PIXI.Text("", { font: "24px Roboto", fill: "#f8fafc", fontWeight: "bold" });
+	label.anchor.set(0.5, 0.5);
+	label.position.x = 105;
+	label.position.y = 28;
+	button.addChild(label);
+
+	audioToggleButton = button;
+	audioToggleLabel = label;
+	updateAudioToggleButton();
+	g.stage.addChild(button);
+}
+
+function setBattleMusicMuted(muted) {
+	battleMusic.muted = muted;
+	if (battleMusic.masterGain && battleMusic.context) {
+		var targetVolume = muted ? 0.0001 : getBattleMusicProfile().baseVolume;
+		battleMusic.masterGain.gain.cancelScheduledValues(battleMusic.context.currentTime);
+		battleMusic.masterGain.gain.setTargetAtTime(targetVolume, battleMusic.context.currentTime, 0.08);
+	}
+	updateAudioToggleButton();
+}
+
+function toggleBattleMusicMute() {
+	setBattleMusicMuted(!battleMusic.muted);
+}
+
+function startBattleMusic() {
+	var context = ensureBattleMusicContext();
+	if (!context) {
+		return;
+	}
+
+	if (context.state === "suspended") {
+		context.resume();
+	}
+
+	if (battleMusic.started) {
+		setBattleMusicMuted(battleMusic.muted);
+		return;
+	}
+
+	battleMusic.started = true;
+	battleMusic.mood = "steady";
+	battleMusic.stepIndex = 0;
+	battleMusic.nextNoteTime = context.currentTime + 0.05;
+	battleMusic.scheduleTimer = window.setInterval(battleMusicScheduler, 120);
+	battleMusicScheduler();
+	syncBattleMusicMood();
+	setBattleMusicMuted(battleMusic.muted);
+}
+
+function stopBattleMusic() {
+	if (battleMusic.scheduleTimer !== null) {
+		window.clearInterval(battleMusic.scheduleTimer);
+		battleMusic.scheduleTimer = null;
+	}
+
+	battleMusic.started = false;
+	battleMusic.mood = "steady";
 }
 
 //2. The `load` function that will run while your files are loading
@@ -62,6 +469,7 @@ function renderBackground() {
 	bg.width = stageWidth;
 	bg.height = stageHeight;
 	g.stage.addChild(bg);
+	createAudioToggleButton();
 }
 
 function createOverlayButton(label, x, y, width, height, clickHandler) {
@@ -89,20 +497,16 @@ function createOverlayButton(label, x, y, width, height, clickHandler) {
 
 function consumeAutoStartFlag() {
 	if (autoStartNextGame) {
-		return true;
+		return;
 	}
 
 	try {
 		if (window.sessionStorage.getItem("autoStartNextGame") === "true") {
-			window.sessionStorage.removeItem("autoStartNextGame");
 			autoStartNextGame = true;
-			return true;
 		}
 	} catch (error) {
 		console.log(error);
 	}
-
-	return false;
 }
 
 function showStartOverlay() {
@@ -134,13 +538,16 @@ function showStartOverlay() {
 	title.position.y = 380;
 	overlay.addChild(title);
 
-	var subtitle = new PIXI.Text('Press the button to begin the match.', { font: '28px Roboto', fill: '#d9e3f0', align: 'center' });
+	var subtitleText = autoStartNextGame ? 'Press the button to restart the match with music enabled.' : 'Press the button to begin the match.';
+	var buttonLabel = autoStartNextGame ? 'Restart Match' : 'Start Game';
+
+	var subtitle = new PIXI.Text(subtitleText, { font: '28px Roboto', fill: '#d9e3f0', align: 'center' });
 	subtitle.anchor.set(0.5, 0.5);
 	subtitle.position.x = stageWidth / 2;
 	subtitle.position.y = 485;
 	overlay.addChild(subtitle);
 
-	var startButton = createOverlayButton('Start Game', 760, 560, 400, 96, startGameClicked);
+	var startButton = createOverlayButton(buttonLabel, 760, 560, 400, 96, startGameClicked);
 	overlay.addChild(startButton);
 
 	overlay.banner = title;
@@ -161,6 +568,14 @@ function hideStartOverlay() {
 
 function startGameClicked() {
 	hideStartOverlay();
+	startBattleMusic();
+	autoStartNextGame = false;
+
+	try {
+		window.sessionStorage.removeItem("autoStartNextGame");
+	} catch (error) {
+		console.log(error);
+	}
 
 	if (gameStart) {
 		return;
@@ -280,11 +695,18 @@ function resetClientGameState() {
 	resultOverlay = null;
 	startOverlayPulse = 0;
 	resultOverlayPulse = 0;
+	battleMusic.mood = "steady";
+	updateAudioToggleButton();
 }
 
 function ensureOverlayZOrder() {
 	if (!g || !g.stage) {
 		return;
+	}
+
+	if (audioToggleButton !== null) {
+		g.stage.removeChild(audioToggleButton);
+		g.stage.addChild(audioToggleButton);
 	}
 
 	if (startOverlay !== null) {
@@ -631,6 +1053,8 @@ function drawUnit(message) {
 	
 
 }
+
+window.addEventListener("beforeunload", stopBattleMusic);
 
 
 function getFrameSet(unit) {
@@ -1150,11 +1574,13 @@ function renderPlayer2Card() {
 
 function setPlayer1Health(message) {
 	player1Health.text = message.player.health;
+	syncBattleMusicMood();
 	checkGameResult();
 }
 
 function setPlayer2Health(message) {
 	player2Health.text = message.player.health;
+	syncBattleMusicMood();
 	checkGameResult();
 }
 
@@ -1317,15 +1743,11 @@ function play(){
   //This is your game loop, where you can move sprites and add your
   //game logic
 
-  if (gameActorInitalized) {
+	if (gameActorInitalized) {
 	if (!startScreenShown) {
 		startScreenShown = true;
-
-		if (consumeAutoStartFlag()) {
-			startGameClicked();
-		} else {
-			showStartOverlay();
-		}
+		consumeAutoStartFlag();
+		showStartOverlay();
 	}
 
 	if (!gameStart) {
