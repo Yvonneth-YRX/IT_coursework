@@ -6505,10 +6505,10 @@ var GameUtilities = (function () {
       var segment = arguments.length <= 3 || arguments[3] === undefined ? 32 : arguments[3];
 
       //Calculate the center points of each sprite
-      spriteOneCenterX = s1.x + this._getCenter(s1, s1.width, "x");
-      spriteOneCenterY = s1.y + this._getCenter(s1, s1.height, "y");
-      spriteTwoCenterX = s2.x + this._getCenter(s2, s2.width, "x");
-      spriteTwoCenterY = s2.y + this._getCenter(s2, s2.height, "y");
+      var spriteOneCenterX = s1.x + this._getCenter(s1, s1.width, "x");
+      var spriteOneCenterY = s1.y + this._getCenter(s1, s1.height, "y");
+      var spriteTwoCenterX = s2.x + this._getCenter(s2, s2.width, "x");
+      var spriteTwoCenterY = s2.y + this._getCenter(s2, s2.height, "y");
 
       //Plot a vector between spriteTwo and spriteOne
       var vx = spriteTwoCenterX - spriteOneCenterX,
@@ -8449,7 +8449,7 @@ var TileUtilities = (function () {
           var row = Math.floor(index / mapWidthInTiles);
 
           //The node object
-          return node = {
+          var node = {
             f: 0,
             g: 0,
             h: 0,
@@ -8458,6 +8458,7 @@ var TileUtilities = (function () {
             row: row,
             index: index
           };
+          return node;
         });
       };
 
