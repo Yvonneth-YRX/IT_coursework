@@ -127,7 +127,7 @@ The following mechanics are implemented in the current version:
 Some card-specific examples are:
 
   `Gloom Chaser` summons a Wraithling behind itself
-  `Nightsorrow Assassin` destroys a damaged adjacent enemy
+  `Nightsorrow Assassin` destroys a damaged adjacent enemy unit
   `Bloodmoon Priestess` summons a Wraithling when a unit dies
   `Shadowdancer` damages the enemy avatar and heals itself on deathwatch
   `Ironcliff Guardian` can be summoned using Airdrop and has Provoke
@@ -170,16 +170,41 @@ ITSD-DT2025-26-Template/
 └── scripts/
 ```
 
+## Architecture Overview
+
+The project started from the provided coursework template, and as more gameplay features were added, a large amount of logic naturally accumulated inside `GameState.java`. That was workable early on, but it became harder to read and maintain once board logic, card resolution, and session setup all lived in the same place. Because `GameState.java` is part of the original template structure, we kept that file in place, but moved some stable responsibilities into focused service classes while leaving wrapper methods in `GameState` so the development path is still clear.
+
+The current backend structure is organised around the following responsibilities:
+
+  `GameActor` receives WebSocket messages from the browser and dispatches them to the correct event processor.
+  `GameSessionService` handles game startup tasks such as deck initialisation, starting hand generation, board setup, and opening turn setup.
+  `GameState` still stores the live state of the match, including players, units, selections, turn information, and ownership data.
+  `BoardService` contains board-specific logic extracted from `GameState`, such as board initialisation, cell lookup, adjacency checks, and tile highlighting.
+  `CardResolutionService` contains card-specific resolution logic extracted from `GameState`, including summon targeting, spell targeting, summon resolution, and spell execution.
+  `TurnSystem` manages turn order, mana refresh, and end-turn flow.
+  `AIController` is responsible for AI move selection and card play decisions.
+
+This structure was chosen to improve readability and maintenance without breaking compatibility with the original coursework template. In practice, keeping `GameState.java` while moving stable groups of logic into supporting services gave us a safer way to refactor, and also made it easier to show how the original file evolved over the course of the project.
+
 ## Main Files
 
   [`GameScreenController.java`](app/controllers/GameScreenController.java)  
   Serves the game page and creates the WebSocket connection.
 
   [`GameActor.java`](app/actors/GameActor.java)  
-  Manages a game session, initialises decks, and routes incoming messages to the correct event processor.
+  Manages the WebSocket game session and routes incoming messages to the correct event processor.
+
+  [`GameSessionService.java`](app/structures/GameSessionService.java)  
+  Handles game startup, including deck initialisation, starting hands, board setup, and first-turn setup.
 
   [`GameState.java`](app/structures/GameState.java)  
-  Contains most of the gameplay logic, including summoning, targeting, movement, attacks, death handling, and many card effects.
+  Stores the ongoing match state and still acts as the main coordination object for gameplay logic.
+
+  [`BoardService.java`](app/structures/BoardService.java)  
+  Contains board-related logic extracted from `GameState`, such as tile creation, board access, adjacency, and highlights.
+
+  [`CardResolutionService.java`](app/structures/CardResolutionService.java)  
+  Contains card target selection and card effect resolution extracted from `GameState`.
 
   [`TurnSystem.java`](app/structures/TurnSystem.java)  
   Controls turn switching, mana refresh, and card draw.
@@ -196,7 +221,7 @@ When the user opens the game page, the browser connects to the backend through W
 
 The backend processes these events, updates the current `GameState`, and sends command messages back to the frontend. These commands are used to draw units, update cards, move units, show notifications, and play effects.
 
-This means the frontend mostly handles presentation, while the backend remains responsible for the rules.
+In other words, the frontend mostly handles presentation, while the backend remains responsible for the rules and state changes.
 
 ## Running the Project
 
@@ -232,7 +257,7 @@ cd ITSD-DT2025-26-Template
 ./sbt test
 ```
 
-At the moment, automated testing is still limited. Most recent validation has been done through manual gameplay testing and direct checking of card behaviour against the assignment card configuration files.
+At the moment, automated testing is still limited. Most recent validation has mainly been done through manual gameplay testing and by checking implemented card behaviour against the assignment card configuration files.
 
 ## Current Limitations
 

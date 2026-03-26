@@ -30,8 +30,10 @@ import utils.StaticConfFiles;
  */
 public class GameState {
 
+	@Deprecated
 	public boolean gameInitalised = false;
-	public boolean something = false;
+
+	private boolean initialized = false;
 
 	// ---- Board constants ----
 	public static final int BOARD_WIDTH = 9;
@@ -119,6 +121,12 @@ public class GameState {
 
 	public Player getPlayer1() { return player1; }
 	public Player getPlayer2() { return player2; }
+	public boolean isInitialized() { return initialized; }
+
+	public void markInitialized() {
+		this.initialized = true;
+		this.gameInitalised = true;
+	}
 
 	public Unit getPlayer1Avatar() { return player1Avatar; }
 	public Unit getPlayer2Avatar() { return player2Avatar; }
@@ -302,51 +310,33 @@ public class GameState {
 	}
 
 	// ---------------------------------------------------------------------
-	// Added: board init / access helpers
+	// Board helpers extracted from the original GameState.java into
+	// BoardService. These wrappers remain here intentionally because
+	// GameState.java is coursework-provided source that should stay visible.
 	// ---------------------------------------------------------------------
 
 	public void initBoard(ActorRef out) {
-		if (cells != null) return;
-
-		cells = new BoardCell[BOARD_WIDTH][BOARD_HEIGHT];
-		allCells = new ArrayList<>(BOARD_WIDTH * BOARD_HEIGHT);
-		allTiles = new ArrayList<>(BOARD_WIDTH * BOARD_HEIGHT);
-
-		for (int y = 0; y < BOARD_HEIGHT; y++) {
-			for (int x = 0; x < BOARD_WIDTH; x++) {
-				Tile tile = BasicObjectBuilders.loadTile(x, y);
-				BoardCell cell = new BoardCell(x, y, tile);
-
-				cells[x][y] = cell;
-				allCells.add(cell);
-				allTiles.add(tile);
-
-				lastHighlight[x][y] = Highlight.NONE;
-				BasicCommands.drawTile(out, tile, 0);
-			}
-		}
+		BoardService.initBoard(this, out);
 	}
 
 	public boolean isOnBoard(int x, int y) {
-		return x >= 0 && x < BOARD_WIDTH && y >= 0 && y < BOARD_HEIGHT;
+		return BoardService.isOnBoard(x, y);
 	}
 
 	public BoardCell getCell(int x, int y) {
-		if (cells == null || !isOnBoard(x, y)) return null;
-		return cells[x][y];
+		return BoardService.getCell(this, x, y);
 	}
 
 	public Tile getTile(int x, int y) {
-		if (cells == null || !isOnBoard(x, y)) return null;
-		return cells[x][y].getTile();
+		return BoardService.getTile(this, x, y);
 	}
 
 	public List<Tile> getAllTiles() {
-		return Collections.unmodifiableList(allTiles);
+		return BoardService.getAllTiles(this);
 	}
 
 	public List<BoardCell> getAllCells() {
-		return Collections.unmodifiableList(allCells);
+		return BoardService.getAllCells(this);
 	}
 
 	public void setLastClickedCell(BoardCell cell) {
@@ -358,26 +348,11 @@ public class GameState {
 	}
 
 	public void clearAllHighlights(ActorRef out) {
-		if (cells == null) return;
-		for (int y = 0; y < BOARD_HEIGHT; y++) {
-			for (int x = 0; x < BOARD_WIDTH; x++) {
-				if (lastHighlight[x][y] != Highlight.NONE) {
-					BoardCell c = cells[x][y];
-					c.setHighlight(Highlight.NONE);
-					c.render(out);
-					lastHighlight[x][y] = Highlight.NONE;
-				}
-			}
-		}
+		BoardService.clearAllHighlights(this, out);
 	}
 
 	public void redrawBoardAsNormal(ActorRef out) {
-		if (cells == null) return;
-		for (BoardCell cell : allCells) {
-			cell.setHighlight(Highlight.NONE);
-			cell.render(out);
-			lastHighlight[cell.getX()][cell.getY()] = Highlight.NONE;
-		}
+		BoardService.redrawBoardAsNormal(this, out);
 	}
 
 	// ---------------------------------------------------------------------
@@ -482,7 +457,7 @@ public class GameState {
 		return stunTurn != null && turnNumber <= stunTurn;
 	}
 
-	private void clearDeathResolutionCache() {
+	void clearDeathResolutionCache() {
 		deathResolvedThisStep.clear();
 	}
 
@@ -517,7 +492,7 @@ public class GameState {
 	// Stat helpers
 	// ---------------------------------------------------------------------
 
-	private void applyCardStatsToUnit(Card card, Unit unit) {
+	void applyCardStatsToUnit(Card card, Unit unit) {
 		if (card == null || unit == null || card.getBigCard() == null) return;
 
 		unit.setAttack(card.getBigCard().getAttack());
@@ -525,7 +500,7 @@ public class GameState {
 		unit.setMaxHealth(card.getBigCard().getHealth());
 	}
 
-	private void applyTokenStats(Unit unit, int attack, int health) {
+	void applyTokenStats(Unit unit, int attack, int health) {
 		if (unit == null) return;
 
 		unit.setAttack(attack);
@@ -538,39 +513,87 @@ public class GameState {
 	// ---------------------------------------------------------------------
 
 	public BoardCell getCellForUnit(Unit unit) {
-		if (unit == null) return null;
-		for (BoardCell cell : allCells) {
-			if (cell.getOccupant() != null && cell.getOccupant().getId() == unit.getId()) {
-				return cell;
-			}
-		}
-		return null;
+		return BoardService.getCellForUnit(this, unit);
 	}
 
 	public List<BoardCell> getAdjacentCells(int x, int y, boolean includeDiagonal) {
-		List<BoardCell> result = new ArrayList<>();
-		for (int dy = -1; dy <= 1; dy++) {
-			for (int dx = -1; dx <= 1; dx++) {
-				if (dx == 0 && dy == 0) continue;
-				if (!includeDiagonal && Math.abs(dx) + Math.abs(dy) != 1) continue;
-
-				int nx = x + dx;
-				int ny = y + dy;
-				BoardCell n = getCell(nx, ny);
-				if (n != null) result.add(n);
-			}
-		}
-		return result;
+		return BoardService.getAdjacentCells(this, x, y, includeDiagonal);
 	}
 
 	public boolean areAdjacent(BoardCell a, BoardCell b, boolean includeDiagonal) {
-		if (a == null || b == null) return false;
-		int dx = Math.abs(a.getX() - b.getX());
-		int dy = Math.abs(a.getY() - b.getY());
-		if (includeDiagonal) {
-			return dx <= 1 && dy <= 1 && !(dx == 0 && dy == 0);
-		}
-		return dx + dy == 1;
+		return BoardService.areAdjacent(a, b, includeDiagonal);
+	}
+
+	BoardCell[][] getBoardCells() {
+		return cells;
+	}
+
+	void setBoardCells(BoardCell[][] cells) {
+		this.cells = cells;
+	}
+
+	List<Tile> getMutableAllTiles() {
+		return allTiles;
+	}
+
+	void setAllTiles(List<Tile> allTiles) {
+		this.allTiles = allTiles;
+	}
+
+	List<BoardCell> getMutableAllCells() {
+		return allCells;
+	}
+
+	void setAllCells(List<BoardCell> allCells) {
+		this.allCells = allCells;
+	}
+
+	Highlight[][] getLastHighlightGrid() {
+		return lastHighlight;
+	}
+
+	List<BoardCell> getSelectedMoveCellsMutable() {
+		return selectedMoveCells;
+	}
+
+	List<BoardCell> getSelectedAttackCellsMutable() {
+		return selectedAttackCells;
+	}
+
+	List<BoardCell> getSelectedCardTargetCellsMutable() {
+		return selectedCardTargetCells;
+	}
+
+	void setSelectedUnitInternal(Unit unit) {
+		this.selectedUnit = unit;
+	}
+
+	void setSelectedCardInternal(Card card) {
+		this.selectedCard = card;
+	}
+
+	void setSelectedHandPositionInternal(int handPosition) {
+		this.selectedHandPosition = handPosition;
+	}
+
+	void markCardSelectionNow() {
+		this.lastCardSelectionAtMs = System.currentTimeMillis();
+	}
+
+	void setSelectionModeCardSummon() {
+		this.selectionMode = SelectionMode.CARD_SUMMON;
+	}
+
+	void setSelectionModeCardSpell() {
+		this.selectionMode = SelectionMode.CARD_SPELL;
+	}
+
+	boolean isSelectionModeCardSummon() {
+		return selectionMode == SelectionMode.CARD_SUMMON;
+	}
+
+	boolean isSelectionModeCardSpell() {
+		return selectionMode == SelectionMode.CARD_SPELL;
 	}
 
 	// ---------------------------------------------------------------------
@@ -878,102 +901,13 @@ public class GameState {
 	}
 
 	// ---------------------------------------------------------------------
-	// Move-then-attack helper
-	// ---------------------------------------------------------------------
-
-	public boolean tryMoveThenAttackSelectedTarget(ActorRef out, BoardCell targetCell) {
-		if (selectedUnit == null || targetCell == null || !targetCell.isOccupied()) return false;
-		if (hasMovedThisTurn(selectedUnit) || hasAttackedThisTurn(selectedUnit)) return false;
-		if (isProvoked(selectedUnit) && !hasProvoke(targetCell.getOccupant())) return false;
-
-		BoardCell moveCell = findMoveCellThatCanAttack(selectedUnit, targetCell);
-		if (moveCell == null) return false;
-
-		queueFollowUpAttack(selectedUnit, targetCell);
-		boolean moved = moveSelectedUnitTo(out, moveCell);
-		if (!moved) {
-			clearPendingFollowUpAttack();
-		}
-		return moved;
-	}
-
-	private BoardCell findMoveCellThatCanAttack(Unit unit, BoardCell targetCell) {
-		if (unit == null || targetCell == null || !targetCell.isOccupied()) return null;
-
-		BoardCell origin = getCellForUnit(unit);
-		if (origin == null) return null;
-
-		BoardCell best = null;
-		int bestScore = Integer.MIN_VALUE;
-
-		for (BoardCell candidate : getValidMoveCells(unit)) {
-			if (!areAdjacent(candidate, targetCell, true)) continue;
-
-			int score = 0;
-			int deltaToTarget = Math.abs(candidate.getX() - targetCell.getX()) + Math.abs(candidate.getY() - targetCell.getY());
-			int deltaFromOrigin = Math.abs(candidate.getX() - origin.getX()) + Math.abs(candidate.getY() - origin.getY());
-			score -= deltaToTarget * 10;
-			score -= deltaFromOrigin;
-
-			if (best == null || score > bestScore) {
-				best = candidate;
-				bestScore = score;
-			}
-		}
-
-		return best;
-	}
-
-	private void queueFollowUpAttack(Unit attacker, BoardCell targetCell) {
-		if (attacker == null || targetCell == null) return;
-		pendingFollowUpAttackUnitId = attacker.getId();
-		pendingFollowUpAttackTargetX = targetCell.getX();
-		pendingFollowUpAttackTargetY = targetCell.getY();
-	}
-
-	private void clearPendingFollowUpAttack() {
-		pendingFollowUpAttackUnitId = null;
-		pendingFollowUpAttackTargetX = null;
-		pendingFollowUpAttackTargetY = null;
-	}
-
-	// ---------------------------------------------------------------------
-	// Card select / summon / spell
+	// Card-resolution helpers extracted from the original GameState.java into
+	// CardResolutionService. These wrappers stay here intentionally so the
+	// coursework-provided GameState.java still shows the refactoring path.
 	// ---------------------------------------------------------------------
 
 	public void selectCard(ActorRef out, Card card, int handPosition) {
-		int previousHandPosition = selectedHandPosition;
-
-		selectedUnit = null;
-		selectedMoveCells.clear();
-		selectedAttackCells.clear();
-
-		selectedCard = card;
-		selectedHandPosition = handPosition;
-		lastCardSelectionAtMs = System.currentTimeMillis();
-		selectedCardTargetCells.clear();
-
-		if (card == null) {
-			clearSelection(out);
-			return;
-		}
-
-		if (currentPlayer == 1 && previousHandPosition >= 1 && previousHandPosition != handPosition) {
-			drawHandCardNormal(out, 1, previousHandPosition);
-		}
-
-		if (card.getIsCreature()) {
-			selectionMode = SelectionMode.CARD_SUMMON;
-			selectedCardTargetCells.addAll(getValidSummonCellsForCurrentPlayer(card));
-			applyCardTargetHighlights(out, Highlight.VALID);
-		} else {
-			selectionMode = SelectionMode.CARD_SPELL;
-			selectedCardTargetCells.addAll(getSpellTargetCells(card));
-			Highlight mode = isHelpfulSpell(card) ? Highlight.VALID : Highlight.ATTACK;
-			applyCardTargetHighlights(out, mode);
-		}
-
-		highlightHandCard(out, currentPlayer, handPosition);
+		CardResolutionService.selectCard(this, out, card, handPosition);
 	}
 
 	private boolean isHelpfulSpell(Card card) {
@@ -992,148 +926,26 @@ public class GameState {
 	}
 
 	public boolean tryResolveCardActionAt(ActorRef out, BoardCell cell) {
-		if (selectedCard == null || cell == null) return false;
-		if (!selectedCardTargetCells.contains(cell)) return false;
-
-		if (selectionMode == SelectionMode.CARD_SUMMON) {
-			return summonCreatureCard(out, selectedCard, cell);
-		} else if (selectionMode == SelectionMode.CARD_SPELL) {
-			return castSpellCard(out, selectedCard, cell);
-		}
-		return false;
+		return CardResolutionService.tryResolveCardActionAt(this, out, cell);
 	}
 
 	public List<BoardCell> getValidSummonCellsForCurrentPlayer() {
-		return getValidSummonCellsForCurrentPlayer(null);
+		return CardResolutionService.getValidSummonCellsForCurrentPlayer(this);
 	}
 
 	public List<BoardCell> getValidSummonCellsForCurrentPlayer(Card card) {
-		if (hasAirdrop(card)) {
-			List<BoardCell> result = new ArrayList<>();
-			for (BoardCell cell : allCells) {
-				if (cell.isEmpty()) {
-					result.add(cell);
-				}
-			}
-			return result;
-		}
-
-		Set<BoardCell> result = new LinkedHashSet<>();
-
-		for (BoardCell cell : allCells) {
-			if (!cell.isOccupied()) continue;
-			Unit unit = cell.getOccupant();
-			if (getUnitOwner(unit) != currentPlayer) continue;
-
-			for (BoardCell adj : getAdjacentCells(cell.getX(), cell.getY(), true)) {
-				if (adj.isEmpty()) result.add(adj);
-			}
-		}
-
-		return new ArrayList<>(result);
+		return CardResolutionService.getValidSummonCellsForCurrentPlayer(this, card);
 	}
 
 	private List<BoardCell> getSpellTargetCells(Card card) {
-		List<BoardCell> result = new ArrayList<>();
-		String name = normalizeCardName(card);
-
-		if (name.equals("wraithling swarm")) {
-			result.addAll(getValidSummonCellsForCurrentPlayer());
-			return result;
-		}
-
-		if (name.equals("horn of the forsaken")) {
-			// no target needed, use avatar tile as a dummy selectable tile
-			Unit avatar = (currentPlayer == 1) ? player1Avatar : player2Avatar;
-			BoardCell avatarCell = getCellForUnit(avatar);
-			if (avatarCell != null) {
-				result.add(avatarCell);
-			}
-			return result;
-		}
-
-		for (BoardCell cell : allCells) {
-			if (!cell.isOccupied()) continue;
-
-			Unit target = cell.getOccupant();
-			int owner = getUnitOwner(target);
-
-			if (name.equals("truestrike")) {
-				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
-					result.add(cell);
-				}
-			} else if (name.equals("beamshock")) {
-				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
-					result.add(cell);
-				}
-			} else if (name.equals("dark terminus")) {
-				if (owner != currentPlayer && target != player1Avatar && target != player2Avatar) {
-					result.add(cell);
-				}
-			} else if (name.equals("sundrop elixir")) {
-				if (owner == currentPlayer && target != player1Avatar && target != player2Avatar) {
-					result.add(cell);
-				}
-			}
-		}
-
-		return result;
+		return CardResolutionService.getSpellTargetCellsForAI(this, card);
 	}
 
 	private boolean summonCreatureCard(ActorRef out, Card card, BoardCell targetCell) {
-		if (targetCell == null || !targetCell.isEmpty()) return false;
-
-		Player player = getCurrentPlayerObject();
-		if (player.getMana() < card.getManacost()) return false;
-
-		try {
-			Unit unit = BasicObjectBuilders.loadUnit(card.getUnitConfig(), allocateUnitId(), Unit.class);
-			unit.setCard(card);
-			applyCardStatsToUnit(card, unit);
-
-			if (card.getCardname().equals("Rock Pulveriser") ||
-					card.getCardname().equals("Swamp Entangler") ||
-					card.getCardname().equals("Silverguard Knight") ||
-					card.getCardname().equals("Ironcliff Guardian")) {
-
-				unit.setProvoke(true);
-			}
-
-			targetCell.trySetOccupant(unit);
-			unit.setPositionByTile(targetCell.getTile());
-			registerUnit(unit, currentPlayer, card.getCardname());
-
-			playSummonAnimation(out, targetCell);
-
-			// Draw the summoned unit first
-			BasicCommands.drawUnit(out, unit, targetCell.getTile());
-			Thread.sleep(50);
-			BasicCommands.setUnitHealth(out, unit, unit.getHealth());
-			BasicCommands.setUnitAttack(out, unit, unit.getAttack());
-			Thread.sleep(50);
-
-			// Then trigger Opening Gambit effects
-			triggerOpeningGambit(out, unit);
-
-			if (!hasRush(card)) {
-				setMovedThisTurn(unit, true);
-				setAttackedThisTurn(unit, true);
-			}
-
-			spendMana(out, currentPlayer, card.getManacost());
-			removeCardFromCurrentHand(out, selectedHandPosition);
-
-			clearSelection(out);
-			clearDeathResolutionCache();
-			return true;
-
-		} catch (Exception e) {
-			e.printStackTrace();
-			return false;
-		}
+		return CardResolutionService.summonCreatureCard(this, out, card, targetCell);
 	}
 
-	private void playSummonAnimation(ActorRef out, BoardCell targetCell) {
+	void playSummonAnimation(ActorRef out, BoardCell targetCell) {
 		if (out == null || targetCell == null) {
 			return;
 		}
@@ -1152,119 +964,10 @@ public class GameState {
 	}
 
 	private boolean castSpellCard(ActorRef out, Card card, BoardCell targetCell) {
-		Player player = getCurrentPlayerObject();
-		if (player.getMana() < card.getManacost()) return false;
-
-		String name = normalizeCardName(card);
-
-		try {
-			if (name.equals("truestrike")) {
-				if (!targetCell.isOccupied()) return false;
-				Unit target = targetCell.getOccupant();
-				if (target == player1Avatar || target == player2Avatar) return false;
-				playSpellEffect(out, targetCell, StaticConfFiles.f1_soulshatter);
-				applyDamageToUnit(out, target, 2);
-				handleUnitDeathIfNeeded(out, target);
-			} else if (name.equals("beamshock")) {
-				if (!targetCell.isOccupied()) return false;
-
-				Unit target = targetCell.getOccupant();
-
-				if (target == player1Avatar || target == player2Avatar) return false;
-
-				playSpellEffect(out, targetCell, StaticConfFiles.f1_buff);
-				stunUnitUntilNextTurn(target);
-
-				BasicCommands.addPlayer1Notification(out, "Beamshock: target stunned", 2);
-			} else if (name.equals("sundrop elixir")) {
-				if (!targetCell.isOccupied()) return false;
-				Unit target = targetCell.getOccupant();
-				if (target == player1Avatar || target == player2Avatar) return false;
-				int newHealth = Math.min(target.getMaxHealth(), target.getHealth() + 5);
-				target.setHealth(newHealth);
-				BasicCommands.setUnitHealth(out, target, target.getHealth());
-				syncAvatarHealthIfNeeded(out, target);
-			} else if (name.equals("dark terminus")) {
-				if (!targetCell.isOccupied()) return false;
-
-				Unit victim = targetCell.getOccupant();
-
-				if (getUnitOwner(victim) == currentPlayer) return false;
-				if (victim == player1Avatar || victim == player2Avatar) return false;
-
-				victim.setHealth(0);
-				handleUnitDeathIfNeeded(out, victim);
-
-				Unit token = BasicObjectBuilders.loadUnit(
-						StaticConfFiles.wraithling,
-						allocateUnitId(),
-						Unit.class
-				);
-
-				applyTokenStats(token, 1, 1);
-
-				targetCell.trySetOccupant(token);
-				token.setPositionByTile(targetCell.getTile());
-				registerUnit(token, currentPlayer);
-
-				BasicCommands.drawUnit(out, token, targetCell.getTile());
-				Thread.sleep(50);
-				BasicCommands.setUnitHealth(out, token, token.getHealth());
-				BasicCommands.setUnitAttack(out, token, token.getAttack());
-
-				setMovedThisTurn(token, true);
-				setAttackedThisTurn(token, true);
-			} else if (name.equals("wraithling swarm")) {
-
-				List<BoardCell> summonCells = getSummonCellsNearTarget(targetCell, 3);
-				for (BoardCell cell : summonCells) {
-					Unit token = BasicObjectBuilders.loadUnit(
-							StaticConfFiles.wraithling,
-							allocateUnitId(),
-							Unit.class
-					);
-
-					applyTokenStats(token, 1, 1);
-
-					cell.trySetOccupant(token);
-					token.setPositionByTile(cell.getTile());
-					registerUnit(token, currentPlayer, "Wraithling");
-
-					BasicCommands.drawUnit(out, token, cell.getTile());
-					Thread.sleep(50);
-					BasicCommands.setUnitHealth(out, token, token.getHealth());
-					BasicCommands.setUnitAttack(out, token, token.getAttack());
-
-					setMovedThisTurn(token, true);
-					setAttackedThisTurn(token, true);
-				}
-			} else if (name.equals("horn of the forsaken")) {
-
-				equipHorn(currentPlayer);
-
-				if (currentPlayer == 1) {
-					BasicCommands.addPlayer1Notification(out, "Player 1 equipped Horn (3 durability)", 2);
-				} else {
-					BasicCommands.addPlayer1Notification(out, "Player 2 equipped Horn (3 durability)", 2);
-				}
-
-			} else {
-				return false;
-			}
-
-			spendMana(out, currentPlayer, card.getManacost());
-			removeCardFromCurrentHand(out, selectedHandPosition);
-			clearSelection(out);
-			clearDeathResolutionCache();
-			return true;
-
-		} catch (Exception e) {
-			e.printStackTrace();
-			return false;
-		}
+		return CardResolutionService.castSpellCard(this, out, card, targetCell);
 	}
 
-	private String normalizeCardName(Card card) {
+	String normalizeCardName(Card card) {
 		return normalizeName(card == null ? null : card.getCardname());
 	}
 
@@ -1304,7 +1007,7 @@ public class GameState {
 		return result;
 	}
 
-	private void playSpellEffect(ActorRef out, BoardCell targetCell, String impactEffectConf) {
+	void playSpellEffect(ActorRef out, BoardCell targetCell, String impactEffectConf) {
 		if (targetCell == null || impactEffectConf == null || impactEffectConf.isEmpty()) {
 			return;
 		}
@@ -1335,7 +1038,7 @@ public class GameState {
 		return name == null ? "" : name.trim().toLowerCase();
 	}
 
-	private void removeCardFromCurrentHand(ActorRef out, int handPosition) {
+	void removeCardFromCurrentHand(ActorRef out, int handPosition) {
 		List<Card> hand = getCurrentPlayerHand();
 		int index = handPosition - 1;
 
@@ -1348,7 +1051,7 @@ public class GameState {
 		}
 	}
 
-	private void spendMana(ActorRef out, int player, int amount) {
+	void spendMana(ActorRef out, int player, int amount) {
 		Player p = (player == 1) ? player1 : player2;
 		p.setMana(Math.max(0, p.getMana() - amount));
 
@@ -1363,7 +1066,7 @@ public class GameState {
 	// Damage / death / avatar sync
 	// ---------------------------------------------------------------------
 
-	private void applyDamageToUnit(ActorRef out, Unit unit, int amount) {
+	void applyDamageToUnit(ActorRef out, Unit unit, int amount) {
 		if (unit == null) return;
 
 		unit.setHealth(unit.getHealth() - amount);
@@ -1405,7 +1108,7 @@ public class GameState {
 		}
 	}
 
-	private void syncAvatarHealthIfNeeded(ActorRef out, Unit unit) {
+	void syncAvatarHealthIfNeeded(ActorRef out, Unit unit) {
 		if (unit == player1Avatar) {
 			player1.setHealth(Math.max(0, unit.getHealth()));
 			BasicCommands.setPlayer1Health(out, player1);
@@ -1526,11 +1229,11 @@ public class GameState {
 		return normalizeCardName(unit == null ? null : unit.getCard()).equals("young flamewing");
 	}
 
-	private boolean hasRush(Card card) {
+	boolean hasRush(Card card) {
 		return normalizeCardName(card).equals("saberspine tiger");
 	}
 
-	private boolean hasAirdrop(Card card) {
+	boolean hasAirdrop(Card card) {
 		return normalizeCardName(card).equals("ironcliff guardian");
 	}
 
@@ -1539,28 +1242,11 @@ public class GameState {
 	// ---------------------------------------------------------------------
 
 	public List<BoardCell> getSpellTargetCellsForAI(Card card) {
-		return getSpellTargetCells(card);
+		return CardResolutionService.getSpellTargetCellsForAI(this, card);
 	}
 
 	public boolean playCardForAI(ActorRef out, Card card, BoardCell targetCell) {
-		if (card == null) return false;
-
-		List<Card> hand = getCurrentPlayerHand();
-		int index = hand.indexOf(card);
-		if (index < 0) return false;
-
-		selectedCard = card;
-		selectedHandPosition = index + 1;
-
-		announceAICardPlay(out, card, targetCell);
-
-		if (card.getIsCreature()) {
-			selectionMode = SelectionMode.CARD_SUMMON;
-			return summonCreatureCard(out, card, targetCell);
-		} else {
-			selectionMode = SelectionMode.CARD_SPELL;
-			return castSpellCard(out, card, targetCell);
-		}
+		return CardResolutionService.playCardForAI(this, out, card, targetCell);
 	}
 
 	private void announceAICardPlay(ActorRef out, Card card, BoardCell targetCell) {
@@ -1582,7 +1268,7 @@ public class GameState {
 		BasicCommands.addPlayer1Notification(out, message, 2);
 	}
 
-	private String describeTarget(BoardCell targetCell) {
+	String describeTarget(BoardCell targetCell) {
 		if (targetCell == null) {
 			return "";
 		}
@@ -1602,7 +1288,7 @@ public class GameState {
 		return "tile (" + targetCell.getX() + "," + targetCell.getY() + ")";
 	}
 
-	private String formatTargetSuffix(String targetDescription) {
+	String formatTargetSuffix(String targetDescription) {
 		if (targetDescription == null || targetDescription.isEmpty()) {
 			return "";
 		}
@@ -1663,7 +1349,7 @@ public class GameState {
 		}
 	}
 
-	private void triggerOpeningGambit(ActorRef out, Unit unit) {
+	void triggerOpeningGambit(ActorRef out, Unit unit) {
 
 		Card card = unit.getCard();
 
@@ -1757,6 +1443,7 @@ public class GameState {
 			Unit target = neighbor.getOccupant();
 
 			if (getUnitOwner(target) == owner) continue;
+			if (target == player1Avatar || target == player2Avatar) continue;
 
 			if (target.getHealth() < target.getMaxHealth()) {
 				candidates.add(target);

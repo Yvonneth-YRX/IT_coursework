@@ -3,9 +3,6 @@ package actors;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.Collections;
-import java.util.List;
-import java.util.ArrayList;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,12 +21,8 @@ import events.UnitMoving;
 import events.UnitStopped;
 import play.libs.Json;
 import structures.GameState;
+import structures.GameSessionService;
 import utils.ImageListForPreLoad;
-import utils.BasicObjectBuilders;
-import utils.StaticConfFiles;
-import commands.BasicCommands;
-
-import structures.basic.Card;
 
 /**
  * The game actor is an Akka Actor that receives events from the user front-end UI (e.g. when 
@@ -43,9 +36,9 @@ import structures.basic.Card;
  */
 public class GameActor extends AbstractActor {
 
-	private ObjectMapper mapper = new ObjectMapper(); // Jackson Java Object Serializer, is used to turn java objects to Strings
-	private ActorRef out; // The ActorRef can be used to send messages to the front-end UI
-	private Map<String,EventProcessor> eventProcessors; // Classes used to process each type of event
+	private final ObjectMapper mapper = new ObjectMapper(); // Jackson Java Object Serializer, is used to turn java objects to Strings
+	private final ActorRef out; // The ActorRef can be used to send messages to the front-end UI
+	private final Map<String,EventProcessor> eventProcessors; // Classes used to process each type of event
 	private GameState gameState; // A class that can be used to hold game state information
 
 	/**
@@ -59,15 +52,7 @@ public class GameActor extends AbstractActor {
 		this.out = out; // save this, so we can send commands to the front-end later
 
 		// create class instances to respond to the various events that we might recieve
-		eventProcessors = new HashMap<String,EventProcessor>();
-		eventProcessors.put("initalize", new Initalize());
-		eventProcessors.put("heartbeat", new Heartbeat());
-		eventProcessors.put("unitMoving", new UnitMoving());
-		eventProcessors.put("unitstopped", new UnitStopped());
-		eventProcessors.put("tileclicked", new TileClicked());
-		eventProcessors.put("cardclicked", new CardClicked());
-		eventProcessors.put("endturnclicked", new EndTurnClicked());
-		eventProcessors.put("otherclicked", new OtherClicked());
+		eventProcessors = createEventProcessors();
 		
 		// Initalize a new game state object
 		gameState = new GameState();
@@ -83,6 +68,19 @@ public class GameActor extends AbstractActor {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+
+	private Map<String, EventProcessor> createEventProcessors() {
+		Map<String, EventProcessor> processors = new HashMap<String, EventProcessor>();
+		processors.put("initalize", new Initalize());
+		processors.put("heartbeat", new Heartbeat());
+		processors.put("unitMoving", new UnitMoving());
+		processors.put("unitstopped", new UnitStopped());
+		processors.put("tileclicked", new TileClicked());
+		processors.put("cardclicked", new CardClicked());
+		processors.put("endturnclicked", new EndTurnClicked());
+		processors.put("otherclicked", new OtherClicked());
+		return processors;
 	}
 
 	/**
@@ -113,7 +111,7 @@ public class GameActor extends AbstractActor {
 	public void processMessage(String messageType, JsonNode message) throws Exception{
 		if ("restartgame".equals(messageType)) {
 			gameState = new GameState();
-			new Initalize().processEvent(out, gameState, message);
+			GameSessionService.initializeSession(out, gameState);
 			return;
 		}
 
@@ -133,6 +131,8 @@ public class GameActor extends AbstractActor {
 		returnMessage.put("error", errorText);
 		out.tell(returnMessage, out);
 	}
+<<<<<<< dev/newhqz
+=======
 
     // Initialize the card piles of both sides111.
     public static void initializeDecks(GameState gameState) {
@@ -223,4 +223,5 @@ public class GameActor extends AbstractActor {
         }
     }
 
+>>>>>>> master
 }
