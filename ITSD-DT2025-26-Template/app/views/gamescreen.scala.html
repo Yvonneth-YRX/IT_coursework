@@ -1,11 +1,14 @@
-@(request: play.mvc.Http.Request, user: String)
+@import controllers.routes
+@import play.mvc.Http.Request
+@(request: Request, user: String)
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <title>ITSD Card Game Main Screen</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="@routes.Assets.at("css/uikit.css")" />
+        <!--suppress CssUnusedSymbol -->
         <style>
             #mainBody {
                 cursor: default;
@@ -53,17 +56,18 @@
             }
         </style>
         
-        <script src="@routes.Assets.at("js/jquery.3.4.1.js")"></script> 
+        <script src="@routes.Assets.at("js/jquery.3.4.1.js")"></script>
         <script src="@routes.Assets.at("js/uikit.js")"></script>
         <script src="@routes.Assets.at("js/uikit-icons.js")"></script>
 		<script src="@routes.Assets.at("js/hexi.min.js")"></script>
 
     </head>
-    <body id="mainBody" wsdata="@routes.GameScreenController.socket.webSocketURL(request)" onload="init()">
+    <body id="mainBody" data-ws-url="@routes.GameScreenController.socket().webSocketURL(request)" onload="init()">
 
 
 	
 
+	<div id="gameCursor" class="game-ui-cursor" aria-hidden="true"></div>
 	<script src="@routes.Assets.at("js/cardgame.js")"></script>
 	<script type="text/javascript">
 	
@@ -126,7 +130,7 @@
 	
 	
 	function openWebSocketConnection() {
-        var wsURL = document.getElementById("mainBody").getAttribute("wsdata");
+        var wsURL = document.getElementById("mainBody").getAttribute("data-ws-url");
 
         //alert(wsURL);
         ws = new WebSocket(wsURL);

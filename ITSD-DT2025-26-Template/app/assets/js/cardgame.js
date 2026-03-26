@@ -109,9 +109,14 @@ function attachGameCursor(canvas) {
 	}
 
 	if (gameCursorElement === null) {
-		gameCursorElement = document.createElement("div");
-		gameCursorElement.className = "game-ui-cursor";
-		document.body.appendChild(gameCursorElement);
+		gameCursorElement = document.getElementById("gameCursor");
+		if (gameCursorElement === null) {
+			gameCursorElement = document.createElement("div");
+			gameCursorElement.id = "gameCursor";
+			gameCursorElement.className = "game-ui-cursor";
+			gameCursorElement.setAttribute("aria-hidden", "true");
+			document.body.appendChild(gameCursorElement);
+		}
 	}
 
 	function moveCursor(event) {
