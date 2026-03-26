@@ -3,9 +3,6 @@ package actors;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.Collections;
-import java.util.List;
-import java.util.ArrayList;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,12 +21,8 @@ import events.UnitMoving;
 import events.UnitStopped;
 import play.libs.Json;
 import structures.GameState;
+import structures.GameSessionService;
 import utils.ImageListForPreLoad;
-import utils.BasicObjectBuilders;
-import utils.StaticConfFiles;
-import commands.BasicCommands;
-
-import structures.basic.Card;
 
 /**
  * The game actor is an Akka Actor that receives events from the user front-end UI (e.g. when 
@@ -43,9 +36,9 @@ import structures.basic.Card;
  */
 public class GameActor extends AbstractActor {
 
-	private ObjectMapper mapper = new ObjectMapper(); // Jackson Java Object Serializer, is used to turn java objects to Strings
-	private ActorRef out; // The ActorRef can be used to send messages to the front-end UI
-	private Map<String,EventProcessor> eventProcessors; // Classes used to process each type of event
+	private final ObjectMapper mapper = new ObjectMapper(); // Jackson Java Object Serializer, is used to turn java objects to Strings
+	private final ActorRef out; // The ActorRef can be used to send messages to the front-end UI
+	private final Map<String,EventProcessor> eventProcessors; // Classes used to process each type of event
 	private GameState gameState; // A class that can be used to hold game state information
 
 	/**
@@ -59,15 +52,7 @@ public class GameActor extends AbstractActor {
 		this.out = out; // save this, so we can send commands to the front-end later
 
 		// create class instances to respond to the various events that we might recieve
-		eventProcessors = new HashMap<String,EventProcessor>();
-		eventProcessors.put("initalize", new Initalize());
-		eventProcessors.put("heartbeat", new Heartbeat());
-		eventProcessors.put("unitMoving", new UnitMoving());
-		eventProcessors.put("unitstopped", new UnitStopped());
-		eventProcessors.put("tileclicked", new TileClicked());
-		eventProcessors.put("cardclicked", new CardClicked());
-		eventProcessors.put("endturnclicked", new EndTurnClicked());
-		eventProcessors.put("otherclicked", new OtherClicked());
+		eventProcessors = createEventProcessors();
 		
 		// Initalize a new game state object
 		gameState = new GameState();
@@ -83,6 +68,19 @@ public class GameActor extends AbstractActor {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+
+	private Map<String, EventProcessor> createEventProcessors() {
+		Map<String, EventProcessor> processors = new HashMap<String, EventProcessor>();
+		processors.put("initalize", new Initalize());
+		processors.put("heartbeat", new Heartbeat());
+		processors.put("unitMoving", new UnitMoving());
+		processors.put("unitstopped", new UnitStopped());
+		processors.put("tileclicked", new TileClicked());
+		processors.put("cardclicked", new CardClicked());
+		processors.put("endturnclicked", new EndTurnClicked());
+		processors.put("otherclicked", new OtherClicked());
+		return processors;
 	}
 
 	/**
@@ -113,7 +111,7 @@ public class GameActor extends AbstractActor {
 	public void processMessage(String messageType, JsonNode message) throws Exception{
 		if ("restartgame".equals(messageType)) {
 			gameState = new GameState();
-			new Initalize().processEvent(out, gameState, message);
+			GameSessionService.initializeSession(out, gameState);
 			return;
 		}
 
@@ -134,93 +132,31 @@ public class GameActor extends AbstractActor {
 		out.tell(returnMessage, out);
 	}
 
-    // Initialize the card piles of both sides111.
+    /**
+     * Legacy compatibility bridge kept in the original actor file so the
+     * coursework template history stays visible. The live implementation now
+     * lives in {@link GameSessionService}.
+     */
+    @Deprecated
     public static void initializeDecks(GameState gameState) {
-        gameState.getPlayer1Deck().clear();
-        gameState.getPlayer2Deck().clear();
-        int nextCardId = 1;
-
-        // ===== Human player =====
-        for (String cardPath : StaticConfFiles.humanCards) {
-
-            for (int i = 0; i < 2; i++) {   // two counts of each kind
-
-                Card card = BasicObjectBuilders.loadCard(
-                        cardPath,
-                        nextCardId++,
-                        Card.class
-                );
-
-                gameState.getPlayer1Deck().add(card);
-            }
-        }
-
-        // ===== AI =====
-        for (String cardPath : StaticConfFiles.aiCards) {
-
-            for (int i = 0; i < 2; i++) {
-
-                Card card = BasicObjectBuilders.loadCard(
-                        cardPath,
-                        nextCardId++,
-                        Card.class
-                );
-
-                gameState.getPlayer2Deck().add(card);
-            }
-        }
-
-        // random
-        Collections.shuffle(gameState.getPlayer1Deck());
-        Collections.shuffle(gameState.getPlayer2Deck());
+        GameSessionService.initializeDecks(gameState);
     }
 
-	private static void drawCard(ActorRef out, GameState gameState, int player, boolean renderToClient) {
-		List<Card> deck;
-		List<Card> hand;
+    /**
+     * Legacy compatibility bridge. Card-flow orchestration is now centralized
+     * in {@link GameSessionService} to avoid duplicating startup logic.
+     */
+    @Deprecated
+    public static void drawCard(ActorRef out, GameState gameState, int player) {
+        GameSessionService.drawCard(out, gameState, player);
+    }
 
-		if (player == 1) {
-			deck = gameState.getPlayer1Deck();
-			hand = gameState.getPlayer1Hand();
-		} else {
-			deck = gameState.getPlayer2Deck();
-			hand = gameState.getPlayer2Hand();
-		}
-
-		if (deck.isEmpty()) return;
-
-		Card drawnCard = deck.remove(0);
-
-		if (hand.size() >= 6) {
-			String owner = player == 1 ? "You" : "AI";
-			String cardName = drawnCard == null ? "a card" : drawnCard.getCardname();
-			BasicCommands.addPlayer1Notification(out, owner + " overdrew and burned " + cardName, 2);
-			return;
-		}
-
-		hand.add(drawnCard);
-		int handPosition = hand.size(); // 1-based for UI
-
-		if (renderToClient) {
-			BasicCommands.drawCard(out, drawnCard, handPosition, player - 1);
-		}
-	}
-
-	// General card-drawing method
-	public static void drawCard(ActorRef out, GameState gameState, int player) {
-		drawCard(out, gameState, player, player == 1);
-	}
-
+    /**
+     * Legacy compatibility bridge. Startup hand generation now lives in
+     * {@link GameSessionService}.
+     */
+    @Deprecated
     public static void drawStartingHand(ActorRef out, GameState gameState) {
-        // Human plyer
-        for (int i = 0; i < 3; i++) {
-            drawCard(out, gameState, 1, true);
-        }
-
-        // AI
-        for (int i = 0; i < 3; i++) {
-            drawCard(out, gameState, 2, false);
-        }
+        GameSessionService.drawStartingHand(out, gameState);
     }
-
 }
