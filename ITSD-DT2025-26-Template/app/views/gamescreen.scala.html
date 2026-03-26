@@ -4,9 +4,10 @@
         <title>ITSD Card Game Main Screen</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!--suppress HtmlUnknownTarget -->
         <link rel="stylesheet" href="/assets/css/uikit.css" />
-        <!--suppress CssUnusedSymbol -->
         <style>
+            /*noinspection CssUnusedSymbol */
             #mainBody {
                 cursor: default;
             }
@@ -53,18 +54,23 @@
             }
         </style>
         
+        <!--suppress HtmlUnknownTarget -->
         <script src="/assets/js/jquery.3.4.1.js"></script>
+        <!--suppress HtmlUnknownTarget -->
         <script src="/assets/js/uikit.js"></script>
+        <!--suppress HtmlUnknownTarget -->
         <script src="/assets/js/uikit-icons.js"></script>
+		<!--suppress HtmlUnknownTarget -->
 		<script src="/assets/js/hexi.min.js"></script>
 
     </head>
-    <body id="mainBody" onload="init()">
+    <body id="mainBody">
 
 
 	
 
 	<div id="gameCursor" class="game-ui-cursor" aria-hidden="true"></div>
+	<!--suppress HtmlUnknownTarget -->
 	<script src="/assets/js/cardgame.js"></script>
 	<script type="text/javascript">
 	
@@ -124,6 +130,8 @@
 	function init() {
 		openWebSocketConnection();
 	}
+
+	window.addEventListener("load", init);
 	
 	
 	function openWebSocketConnection() {
