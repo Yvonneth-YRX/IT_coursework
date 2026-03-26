@@ -1,7 +1,6 @@
 package structures;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -18,7 +17,6 @@ import structures.basic.Tile;
 import structures.basic.Unit;
 import structures.board.BoardCell;
 import structures.board.BoardCell.Highlight;
-import structures.basic.Ability;
 import utils.BasicObjectBuilders;
 import utils.StaticConfFiles;
 
@@ -847,57 +845,7 @@ public class GameState {
 	}
 
 	public boolean attackSelectedTarget(ActorRef out, BoardCell targetCell) {
-		if (selectedUnit == null || targetCell == null || !targetCell.isOccupied()) return false;
-		if (!isSelectedAttackCell(targetCell)) return false;
-
-		Unit attacker = selectedUnit;
-		Unit defender = targetCell.getOccupant();
-
-		BoardCell attackerCell = getCellForUnit(attacker);
-		if (attackerCell == null) return false;
-
-		try {
-			BasicCommands.playUnitAnimation(out, attacker, structures.basic.UnitAnimationType.attack);
-			Thread.sleep(200);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		applyDamageToUnit(out, defender, attacker.getAttack());
-
-		// Horn trigger: avatar dealt damage
-		if (attacker == player1Avatar && hasHorn(1)) {
-			summonRandomAdjacentWraithlingToAvatar(out, player1Avatar, 1);
-		}
-
-		if (attacker == player2Avatar && hasHorn(2)) {
-			summonRandomAdjacentWraithlingToAvatar(out, player2Avatar, 2);
-		}
-
-		setAttackedThisTurn(attacker, true);
-
-		boolean defenderDied = handleUnitDeathIfNeeded(out, defender);
-
-		if (!defenderDied) {
-			BoardCell defenderCellNow = getCellForUnit(defender);
-			BoardCell attackerCellNow = getCellForUnit(attacker);
-
-			if (defenderCellNow != null && attackerCellNow != null && areAdjacent(defenderCellNow, attackerCellNow, true)) {
-				try {
-					BasicCommands.playUnitAnimation(out, defender, structures.basic.UnitAnimationType.attack);
-					Thread.sleep(200);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-
-				applyDamageToUnit(out, attacker, defender.getAttack());
-				handleUnitDeathIfNeeded(out, attacker);
-			}
-		}
-
-		clearSelection(out);
-		clearDeathResolutionCache();
-		return true;
+		return CombatResolutionService.attackSelectedTarget(this, out, targetCell);
 	}
 
 	public boolean tryMoveThenAttackSelectedTarget(ActorRef out, BoardCell targetCell) {
@@ -1106,97 +1054,44 @@ public class GameState {
 	}
 
 	// ---------------------------------------------------------------------
-	// Damage / death / avatar sync
+	// Combat / damage / death logic extracted from the original GameState.java
+	// into CombatResolutionService. These wrappers stay here intentionally so
+	// the coursework-provided state file still shows the combat entry points.
 	// ---------------------------------------------------------------------
 
 	void applyDamageToUnit(ActorRef out, Unit unit, int amount) {
-		if (unit == null) return;
-
-		unit.setHealth(unit.getHealth() - amount);
-		BasicCommands.setUnitHealth(out, unit, unit.getHealth());
-
-		// ===== Silverguard Knight Zeal =====
-		if (unit == player1Avatar || unit == player2Avatar) {
-
-			int damagedPlayer = (unit == player1Avatar) ? 1 : 2;
-
-			for (BoardCell cell : allCells) {
-				if (!cell.isOccupied()) continue;
-
-				Unit u = cell.getOccupant();
-				Card c = u.getCard();
-
-				if (c == null) continue;
-
-				if (c.getCardname().equals("Silverguard Knight") &&
-						getUnitOwner(u) == damagedPlayer) {
-
-					int newAttack = u.getAttack() + 2;
-					u.setAttack(newAttack);
-
-					BasicCommands.setUnitAttack(out, u, newAttack);
-				}
-			}
-		}
-
-		syncAvatarHealthIfNeeded(out, unit);
-
-		// Horn durability loss when avatar takes damage
-		if (unit == player1Avatar && hasHorn(1)) {
-			reduceHornDurability(out, 1);
-		}
-
-		if (unit == player2Avatar && hasHorn(2)) {
-			reduceHornDurability(out, 2);
-		}
+		CombatResolutionService.applyDamageToUnit(this, out, unit, amount);
 	}
 
 	void syncAvatarHealthIfNeeded(ActorRef out, Unit unit) {
-		if (unit == player1Avatar) {
-			player1.setHealth(Math.max(0, unit.getHealth()));
-			BasicCommands.setPlayer1Health(out, player1);
-		} else if (unit == player2Avatar) {
-			player2.setHealth(Math.max(0, unit.getHealth()));
-			BasicCommands.setPlayer2Health(out, player2);
-		}
+		CombatResolutionService.syncAvatarHealthIfNeeded(this, out, unit);
 	}
 
 	public boolean handleUnitDeathIfNeeded(ActorRef out, Unit unit) {
-		if (unit == null || unit.getHealth() > 0) return false;
-		if (deathResolvedThisStep.contains(unit.getId())) return false;
+		return CombatResolutionService.handleUnitDeathIfNeeded(this, out, unit);
+	}
 
-		deathResolvedThisStep.add(unit.getId());
+	boolean isDeathAlreadyResolved(Unit unit) {
+		return unit != null && deathResolvedThisStep.contains(unit.getId());
+	}
 
-		BoardCell cell = getCellForUnit(unit);
-		if (cell != null) {
-			cell.clearOccupant();
+	void markDeathResolved(Unit unit) {
+		if (unit != null) {
+			deathResolvedThisStep.add(unit.getId());
 		}
+	}
 
-		try {
-			BasicCommands.playUnitAnimation(out, unit, structures.basic.UnitAnimationType.death);
-			Thread.sleep(300);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		BasicCommands.deleteUnit(out, unit);
-
-		if (unit == player1Avatar) {
-			player1.setHealth(0);
-			BasicCommands.setPlayer1Health(out, player1);
-			gameOver = true;
-			BasicCommands.addPlayer1Notification(out, "You Lose!", 3);
-		} else if (unit == player2Avatar) {
-			player2.setHealth(0);
-			BasicCommands.setPlayer2Health(out, player2);
-			gameOver = true;
-			BasicCommands.addPlayer1Notification(out, "You Win!", 3);
-		}
-
-		triggerDeathwatchEffects(out, unit);
-
+	void removeUnitStateFromService(Unit unit) {
 		removeUnitState(unit);
-		return true;
+	}
+
+	void triggerDeathwatchEffectsFromService(ActorRef out, Unit deadUnit) {
+		triggerDeathwatchEffects(out, deadUnit);
+	}
+
+	void summonHornWraithling(ActorRef out, int owner) {
+		Unit avatar = owner == 1 ? player1Avatar : player2Avatar;
+		summonRandomAdjacentWraithlingToAvatar(out, avatar, owner);
 	}
 
 	private void removeUnitState(Unit unit) {
@@ -1339,168 +1234,25 @@ public class GameState {
 	}
 
 	// ---------------------------------------------------------------------
-	// Card
+	// Triggered effect helpers extracted from the original GameState.java into
+	// TriggeredEffectService. These wrappers stay here intentionally so the
+	// coursework-provided GameState.java still shows how triggered abilities
+	// enter the rules flow.
 	// ---------------------------------------------------------------------
 	private void summonRandomWraithling(ActorRef out, Unit priestess) {
-
-		BoardCell cell = getCellForUnit(priestess);
-		if (cell == null) {
-			System.out.println("summonRandomWraithling: priestess cell is null");
-			return;
-		}
-
-		List<BoardCell> adjacent = getAdjacentCells(cell.getX(), cell.getY(), true);
-		List<BoardCell> emptyCells = new ArrayList<>();
-
-		for (BoardCell c : adjacent) {
-			if (c.isEmpty()) {
-				emptyCells.add(c);
-			}
-		}
-
-		System.out.println("summonRandomWraithling emptyCells size = " + emptyCells.size());
-
-		if (emptyCells.isEmpty()) return;
-
-		Collections.shuffle(emptyCells);
-		BoardCell spawnCell = emptyCells.get(0);
-
-		try {
-			Unit token = BasicObjectBuilders.loadUnit(
-					StaticConfFiles.wraithling,
-					allocateUnitId(),
-					Unit.class
-			);
-
-			applyTokenStats(token, 1, 1);
-
-			spawnCell.trySetOccupant(token);
-			token.setPositionByTile(spawnCell.getTile());
-
-			registerUnit(token, getUnitOwner(priestess), "Wraithling");
-
-			BasicCommands.drawUnit(out, token, spawnCell.getTile());
-			Thread.sleep(50);
-			BasicCommands.setUnitHealth(out, token, token.getHealth());
-			BasicCommands.setUnitAttack(out, token, token.getAttack());
-
-			setMovedThisTurn(token, true);
-			setAttackedThisTurn(token, true);
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		TriggeredEffectService.summonRandomWraithling(this, out, priestess);
 	}
 
 	void triggerOpeningGambit(ActorRef out, Unit unit) {
-
-		Card card = unit.getCard();
-
-		if (card == null) return;
-		if (card.getAbilities() == null) return;
-
-		for (Ability ability : card.getAbilities()) {
-
-			if (!ability.getTrigger().equals("SUMMONED")) continue;
-
-			if (ability.getEffectType().equals("SUMMON_WRAITHLING_BEHIND")) {
-				summonWraithlingBehind(out, unit);
-			}
-
-			if (ability.getEffectType().equals("DESTROY_DAMAGED_ENEMY")) {
-				destroyDamagedAdjacentEnemy(out, unit);
-			}
-
-			if (ability.getEffectType().equals("BUFF_ADJACENT_TO_AVATAR")) {
-				buffAdjacentToAvatar(out, unit, ability.getAmount());
-			}
-		}
+		TriggeredEffectService.triggerOpeningGambit(this, out, unit);
 	}
 
 	private void summonWraithlingBehind(ActorRef out, Unit unit) {
-
-		BoardCell cell = getCellForUnit(unit);
-
-		if (cell == null) return;
-
-		int x = cell.getX();
-		int y = cell.getY();
-
-		int owner = getUnitOwner(unit);
-
-		int behindX;
-
-		if (owner == 1) {
-			behindX = x - 1;
-		} else {
-			behindX = x + 1;
-		}
-
-		BoardCell spawnCell = getCell(behindX, y);
-
-		if (spawnCell == null || !spawnCell.isEmpty()) return;
-
-		try {
-			Unit token = BasicObjectBuilders.loadUnit(
-					StaticConfFiles.wraithling,
-					allocateUnitId(),
-					Unit.class
-			);
-
-			applyTokenStats(token, 1, 1);
-
-			spawnCell.trySetOccupant(token);
-			token.setPositionByTile(spawnCell.getTile());
-
-			registerUnit(token, owner, "Wraithling");
-
-			BasicCommands.drawUnit(out, token, spawnCell.getTile());
-			Thread.sleep(50);
-			BasicCommands.setUnitHealth(out, token, token.getHealth());
-			BasicCommands.setUnitAttack(out, token, token.getAttack());
-			Thread.sleep(50);
-
-			setMovedThisTurn(token, true);
-			setAttackedThisTurn(token, true);
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		TriggeredEffectService.summonWraithlingBehind(this, out, unit);
 	}
 
 	private void destroyDamagedAdjacentEnemy(ActorRef out, Unit assassin) {
-
-		BoardCell cell = getCellForUnit(assassin);
-		if (cell == null) {
-			System.out.println("destroyDamagedAdjacentEnemy: assassin cell is null");
-			return;
-		}
-
-		int owner = getUnitOwner(assassin);
-		List<Unit> candidates = new ArrayList<>();
-
-		for (BoardCell neighbor : getAdjacentCells(cell.getX(), cell.getY(), true)) {
-
-			if (!neighbor.isOccupied()) continue;
-
-			Unit target = neighbor.getOccupant();
-
-			if (getUnitOwner(target) == owner) continue;
-			if (target == player1Avatar || target == player2Avatar) continue;
-
-			if (target.getHealth() < target.getMaxHealth()) {
-				candidates.add(target);
-			}
-		}
-
-		System.out.println("destroyDamagedAdjacentEnemy candidates size = " + candidates.size());
-
-		if (candidates.isEmpty()) return;
-
-		Unit victim = candidates.get(0);
-
-		victim.setHealth(0);
-		handleUnitDeathIfNeeded(out, victim);
+		TriggeredEffectService.destroyDamagedAdjacentEnemy(this, out, assassin);
 	}
 
 	public boolean isProvoked(Unit unit) {
@@ -1518,92 +1270,11 @@ public class GameState {
 	}
 
 	private void summonRandomAdjacentWraithlingToAvatar(ActorRef out, Unit avatar, int owner) {
-
-		BoardCell cell = getCellForUnit(avatar);
-		if (cell == null) return;
-
-		List<BoardCell> adjacent = getAdjacentCells(cell.getX(), cell.getY(), true);
-		List<BoardCell> emptyCells = new ArrayList<>();
-
-		for (BoardCell c : adjacent) {
-			if (c.isEmpty()) {
-				emptyCells.add(c);
-			}
-		}
-
-		if (emptyCells.isEmpty()) return;
-
-		Collections.shuffle(emptyCells);
-		BoardCell spawnCell = emptyCells.get(0);
-
-		try {
-			Unit token = BasicObjectBuilders.loadUnit(
-					StaticConfFiles.wraithling,
-					allocateUnitId(),
-					Unit.class
-			);
-
-			applyTokenStats(token, 1, 1);
-
-			spawnCell.trySetOccupant(token);
-			token.setPositionByTile(spawnCell.getTile());
-
-			registerUnit(token, owner, "Wraithling");
-
-			BasicCommands.drawUnit(out, token, spawnCell.getTile());
-			Thread.sleep(50);
-			BasicCommands.setUnitHealth(out, token, token.getHealth());
-			BasicCommands.setUnitAttack(out, token, token.getAttack());
-
-			setMovedThisTurn(token, true);
-			setAttackedThisTurn(token, true);
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		TriggeredEffectService.summonRandomAdjacentWraithlingToAvatar(this, out, avatar, owner);
 	}
 
 	private void buffAdjacentToAvatar(ActorRef out, Unit squire, int amount) {
-
-		int owner = getUnitOwner(squire);
-
-		Unit avatar = (owner == 1) ? player1Avatar : player2Avatar;
-
-		BoardCell avatarCell = getCellForUnit(avatar);
-		if (avatarCell == null) return;
-
-		List<BoardCell> adjacent = new ArrayList<>();
-		if (owner == 1) {
-			BoardCell front = getCell(avatarCell.getX() + 1, avatarCell.getY());
-			BoardCell back = getCell(avatarCell.getX() - 1, avatarCell.getY());
-			if (front != null) adjacent.add(front);
-			if (back != null) adjacent.add(back);
-		} else {
-			BoardCell front = getCell(avatarCell.getX() - 1, avatarCell.getY());
-			BoardCell back = getCell(avatarCell.getX() + 1, avatarCell.getY());
-			if (front != null) adjacent.add(front);
-			if (back != null) adjacent.add(back);
-		}
-
-		for (BoardCell cell : adjacent) {
-
-			if (!cell.isOccupied()) continue;
-
-			Unit target = cell.getOccupant();
-
-			if (getUnitOwner(target) != owner) continue;
-
-			int newAttack = target.getAttack() + amount;
-			int newHealth = target.getHealth() + amount;
-			int newMaxHealth = target.getMaxHealth() + amount;
-
-			target.setAttack(newAttack);
-			target.setHealth(newHealth);
-			target.setMaxHealth(newMaxHealth);
-
-			BasicCommands.setUnitAttack(out, target, newAttack);
-			BasicCommands.setUnitHealth(out, target, newHealth);
-		}
+		TriggeredEffectService.buffAdjacentToAvatar(this, out, squire, amount);
 	}
 
 }

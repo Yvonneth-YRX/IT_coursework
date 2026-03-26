@@ -1,8 +1,6 @@
 package actors;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -22,13 +20,9 @@ import events.TileClicked;
 import events.UnitMoving;
 import events.UnitStopped;
 import play.libs.Json;
-import commands.BasicCommands;
-import structures.basic.Card;
 import structures.GameState;
 import structures.GameSessionService;
-import utils.BasicObjectBuilders;
 import utils.ImageListForPreLoad;
-import utils.StaticConfFiles;
 
 /**
  * The game actor is an Akka Actor that receives events from the user front-end UI (e.g. when 
@@ -138,92 +132,31 @@ public class GameActor extends AbstractActor {
 		out.tell(returnMessage, out);
 	}
 
-    // Initialize the card piles of both sides111.
+    /**
+     * Legacy compatibility bridge kept in the original actor file so the
+     * coursework template history stays visible. The live implementation now
+     * lives in {@link GameSessionService}.
+     */
+    @Deprecated
     public static void initializeDecks(GameState gameState) {
-        gameState.getPlayer1Deck().clear();
-        gameState.getPlayer2Deck().clear();
-        int nextCardId = 1;
-
-        // ===== Human player =====
-        for (String cardPath : StaticConfFiles.humanCards) {
-
-            for (int i = 0; i < 2; i++) {   // two counts of each kind
-
-                Card card = BasicObjectBuilders.loadCard(
-                        cardPath,
-                        nextCardId++,
-                        Card.class
-                );
-
-                gameState.getPlayer1Deck().add(card);
-            }
-        }
-
-        // ===== AI =====
-        for (String cardPath : StaticConfFiles.aiCards) {
-
-            for (int i = 0; i < 2; i++) {
-
-                Card card = BasicObjectBuilders.loadCard(
-                        cardPath,
-                        nextCardId++,
-                        Card.class
-                );
-
-                gameState.getPlayer2Deck().add(card);
-            }
-        }
-
-        // random
-        Collections.shuffle(gameState.getPlayer1Deck());
-        Collections.shuffle(gameState.getPlayer2Deck());
+        GameSessionService.initializeDecks(gameState);
     }
 
-	private static void drawCard(ActorRef out, GameState gameState, int player, boolean renderToClient) {
-		List<Card> deck;
-		List<Card> hand;
+    /**
+     * Legacy compatibility bridge. Card-flow orchestration is now centralized
+     * in {@link GameSessionService} to avoid duplicating startup logic.
+     */
+    @Deprecated
+    public static void drawCard(ActorRef out, GameState gameState, int player) {
+        GameSessionService.drawCard(out, gameState, player);
+    }
 
-		if (player == 1) {
-			deck = gameState.getPlayer1Deck();
-			hand = gameState.getPlayer1Hand();
-		} else {
-			deck = gameState.getPlayer2Deck();
-			hand = gameState.getPlayer2Hand();
-		}
-
-		if (deck.isEmpty()) return;
-
-		Card drawnCard = deck.remove(0);
-
-		if (hand.size() >= 6) {
-			String owner = player == 1 ? "You" : "AI";
-			String cardName = drawnCard == null ? "a card" : drawnCard.getCardname();
-			BasicCommands.addPlayer1Notification(out, owner + " overdrew and burned " + cardName, 2);
-			return;
-		}
-
-		hand.add(drawnCard);
-		int handPosition = hand.size(); // 1-based for UI
-
-		if (renderToClient) {
-			BasicCommands.drawCard(out, drawnCard, handPosition, player - 1);
-		}
-	}
-
-	// General card-drawing method
-	public static void drawCard(ActorRef out, GameState gameState, int player) {
-		drawCard(out, gameState, player, player == 1);
-	}
-
+    /**
+     * Legacy compatibility bridge. Startup hand generation now lives in
+     * {@link GameSessionService}.
+     */
+    @Deprecated
     public static void drawStartingHand(ActorRef out, GameState gameState) {
-        // Human plyer
-        for (int i = 0; i < 3; i++) {
-            drawCard(out, gameState, 1, true);
-        }
-
-        // AI
-        for (int i = 0; i < 3; i++) {
-            drawCard(out, gameState, 2, false);
-        }
+        GameSessionService.drawStartingHand(out, gameState);
     }
 }

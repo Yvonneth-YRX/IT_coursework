@@ -157,7 +157,7 @@ ITSD-DT2025-26-Template/
 │   ├── commands/       # Commands sent from backend to frontend
 │   ├── controllers/    # HTTP and WebSocket entry points
 │   ├── events/         # Frontend event handlers
-│   ├── structures/     # Main game logic, AI, turn system, state tracking
+│   ├── structures/     # Main game logic, state tracking, services, AI planning
 │   ├── utils/          # Object loaders and helper classes
 │   └── views/          # Play page template
 ├── conf/
@@ -172,7 +172,9 @@ ITSD-DT2025-26-Template/
 
 ## Architecture Overview
 
-The project started from the provided coursework template, and as more gameplay features were added, a large amount of logic naturally accumulated inside `GameState.java`. That was workable early on, but it became harder to read and maintain once board logic, card resolution, and session setup all lived in the same place. Because `GameState.java` is part of the original template structure, we kept that file in place, but moved some stable responsibilities into focused service classes while leaving wrapper methods in `GameState` so the development path is still clear.
+The project started from the provided coursework template, and as more gameplay features were added, a large amount of logic naturally accumulated inside `GameState.java`. That was workable early on, but it became harder to read and maintain once board logic, card resolution, and session setup all lived in the same place. Because `GameState.java` is part of the original template structure, we kept that file in place, but moved some stable responsibilities into focused service classes while leaving wrapper methods in `GameState` so the refactoring path remains visible to markers.
+
+The same principle is now used in other coursework-provided files: the original entry-point files remain in the project, but some responsibilities are delegated into clearer helper classes with comments marking those compatibility bridges.
 
 The current backend structure is organised around the following responsibilities:
 
@@ -181,8 +183,13 @@ The current backend structure is organised around the following responsibilities
   `GameState` still stores the live state of the match, including players, units, selections, turn information, and ownership data.
   `BoardService` contains board-specific logic extracted from `GameState`, such as board initialisation, cell lookup, adjacency checks, and tile highlighting.
   `CardResolutionService` contains card-specific resolution logic extracted from `GameState`, including summon targeting, spell targeting, summon resolution, and spell execution.
+  `CombatResolutionService` contains battle, damage, avatar-sync, and death-resolution logic extracted from `GameState`.
+  `TriggeredEffectService` contains opening-gambit, token-summon, and other triggered unit-effect logic extracted from `GameState`.
   `TurnSystem` manages turn order, mana refresh, and end-turn flow.
-  `AIController` is responsible for AI move selection and card play decisions.
+  `AIController` remains the visible AI entry point from the original structure, but now delegates action enumeration to `AIActionPlanner`.
+  `AIActionPlanner` evaluates legal attacks, moves, and card plays, then selects the highest-value AI action.
+  `AIActionModels` stores the small action-choice data objects shared by the AI controller and planner.
+  `GameActor` still exists as the template actor, but its legacy startup helper methods now forward into `GameSessionService` so startup logic is not duplicated.
 
 This structure was chosen to improve readability and maintenance without breaking compatibility with the original coursework template. In practice, keeping `GameState.java` while moving stable groups of logic into supporting services gave us a safer way to refactor, and also made it easier to show how the original file evolved over the course of the project.
 
@@ -206,11 +213,23 @@ This structure was chosen to improve readability and maintenance without breakin
   [`CardResolutionService.java`](app/structures/CardResolutionService.java)  
   Contains card target selection and card effect resolution extracted from `GameState`.
 
+  [`CombatResolutionService.java`](app/structures/CombatResolutionService.java)  
+  Contains combat, damage application, avatar health synchronisation, and death handling extracted from `GameState`.
+
+  [`TriggeredEffectService.java`](app/structures/TriggeredEffectService.java)  
+  Contains opening-gambit, Wraithling summon, and other triggered effect helpers extracted from `GameState`.
+
   [`TurnSystem.java`](app/structures/TurnSystem.java)  
   Controls turn switching, mana refresh, and card draw.
 
   [`AIController.java`](app/structures/AIController.java)  
-  Handles AI decision-making for attacks, movement, and card play.
+  Keeps the original AI entry point and execution flow, while delegating action planning to supporting AI classes.
+
+  [`AIActionPlanner.java`](app/structures/AIActionPlanner.java)  
+  Contains the extracted AI action-enumeration and best-action selection logic.
+
+  [`AIActionModels.java`](app/structures/AIActionModels.java)  
+  Holds the small AI action data structures used between planning and execution.
 
   [`cardgame.js`](app/assets/js/cardgame.js)  
   Handles rendering, animations, input, hand display, and frontend-side game presentation.
