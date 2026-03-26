@@ -101,6 +101,11 @@ public class GameState {
 
 	private int nextUnitId = 100;
 
+	// ---- queued move-then-attack ----
+	private Integer pendingFollowUpAttackUnitId = null;
+	private Integer pendingFollowUpAttackTargetX = null;
+	private Integer pendingFollowUpAttackTargetY = null;
+
 	private enum SelectionMode {
 		NONE,
 		UNIT,
@@ -267,6 +272,17 @@ public class GameState {
 
 		if (movingUnits.isEmpty()) {
 			inputLocked = false;
+
+			if (!gameOver && pendingFollowUpAttackUnitId != null && pendingFollowUpAttackTargetX != null && pendingFollowUpAttackTargetY != null) {
+				if (unitId == pendingFollowUpAttackUnitId.intValue()) {
+					BoardCell queuedTarget = getCell(pendingFollowUpAttackTargetX, pendingFollowUpAttackTargetY);
+					clearPendingFollowUpAttack();
+					if (queuedTarget != null) {
+						attackSelectedTarget(out, queuedTarget);
+					}
+				}
+			}
+			
 			if (pendingEndTurn && !gameOver) {
 				pendingEndTurn = false;
 				TurnSystem.endTurn(out, this);
@@ -633,6 +649,7 @@ public class GameState {
 		selectedMoveCells.clear();
 		selectedAttackCells.clear();
 		selectedCardTargetCells.clear();
+		clearPendingFollowUpAttack();
 
 		clearAllHighlights(out);
 
