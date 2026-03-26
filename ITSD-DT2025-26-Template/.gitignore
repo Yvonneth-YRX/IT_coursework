@@ -11,6 +11,8 @@ __MACOSX/
 target/
 project/target/
 project/project/
+.ivy2/
+.sbt/
 
 # Logs
 logs/
