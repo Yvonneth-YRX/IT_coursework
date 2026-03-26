@@ -900,6 +900,49 @@ public class GameState {
 		return true;
 	}
 
+	public boolean tryMoveThenAttackSelectedTarget(ActorRef out, BoardCell targetCell) {
+		if (selectedUnit == null || targetCell == null || !targetCell.isOccupied()) return false;
+		if (hasMovedThisTurn(selectedUnit) || hasAttackedThisTurn(selectedUnit)) return false;
+
+		BoardCell destination = chooseFollowUpAttackCell(targetCell);
+		if (destination == null) return false;
+
+		pendingFollowUpAttackUnitId = selectedUnit.getId();
+		pendingFollowUpAttackTargetX = targetCell.getX();
+		pendingFollowUpAttackTargetY = targetCell.getY();
+
+		return moveSelectedUnitTo(out, destination);
+	}
+
+	private BoardCell chooseFollowUpAttackCell(BoardCell targetCell) {
+		BoardCell origin = getCellForUnit(selectedUnit);
+		if (origin == null) return null;
+
+		BoardCell bestCell = null;
+		int bestDistance = Integer.MAX_VALUE;
+
+		for (BoardCell candidate : selectedMoveCells) {
+			if (!areAdjacent(candidate, targetCell, true)) continue;
+
+			int distanceFromOrigin = Math.abs(candidate.getX() - origin.getX()) + Math.abs(candidate.getY() - origin.getY());
+			if (bestCell == null
+					|| distanceFromOrigin < bestDistance
+					|| (distanceFromOrigin == bestDistance && candidate.getY() < bestCell.getY())
+					|| (distanceFromOrigin == bestDistance && candidate.getY() == bestCell.getY() && candidate.getX() < bestCell.getX())) {
+				bestCell = candidate;
+				bestDistance = distanceFromOrigin;
+			}
+		}
+
+		return bestCell;
+	}
+
+	private void clearPendingFollowUpAttack() {
+		pendingFollowUpAttackUnitId = null;
+		pendingFollowUpAttackTargetX = null;
+		pendingFollowUpAttackTargetY = null;
+	}
+
 	// ---------------------------------------------------------------------
 	// Card-resolution helpers extracted from the original GameState.java into
 	// CardResolutionService. These wrappers stay here intentionally so the

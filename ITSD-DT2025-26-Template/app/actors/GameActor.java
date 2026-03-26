@@ -1,6 +1,8 @@
 package actors;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,9 +22,13 @@ import events.TileClicked;
 import events.UnitMoving;
 import events.UnitStopped;
 import play.libs.Json;
+import commands.BasicCommands;
+import structures.basic.Card;
 import structures.GameState;
 import structures.GameSessionService;
+import utils.BasicObjectBuilders;
 import utils.ImageListForPreLoad;
+import utils.StaticConfFiles;
 
 /**
  * The game actor is an Akka Actor that receives events from the user front-end UI (e.g. when 
@@ -131,8 +137,6 @@ public class GameActor extends AbstractActor {
 		returnMessage.put("error", errorText);
 		out.tell(returnMessage, out);
 	}
-<<<<<<< dev/newhqz
-=======
 
     // Initialize the card piles of both sides111.
     public static void initializeDecks(GameState gameState) {
@@ -222,6 +226,4 @@ public class GameActor extends AbstractActor {
             drawCard(out, gameState, 2, false);
         }
     }
-
->>>>>>> master
 }
