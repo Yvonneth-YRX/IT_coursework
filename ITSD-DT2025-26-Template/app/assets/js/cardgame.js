@@ -33,7 +33,7 @@ const battleMusicChords = [
 const battleMusicProfiles = {
 	steady: {
 		tempo: 88,
-		baseVolume: 0.15,
+		baseVolume: 0.3,
 		padRoot: 0.026,
 		padFifth: 0.017,
 		padColor: 0.009,
@@ -50,7 +50,7 @@ const battleMusicProfiles = {
 	},
 	advantage: {
 		tempo: 100,
-		baseVolume: 0.18,
+		baseVolume: 0.36,
 		padRoot: 0.03,
 		padFifth: 0.02,
 		padColor: 0.011,
@@ -67,7 +67,7 @@ const battleMusicProfiles = {
 	},
 	danger: {
 		tempo: 94,
-		baseVolume: 0.165,
+		baseVolume: 0.33,
 		padRoot: 0.024,
 		padFifth: 0.016,
 		padColor: 0.012,
