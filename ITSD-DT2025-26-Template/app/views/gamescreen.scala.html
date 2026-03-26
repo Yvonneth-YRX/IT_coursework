@@ -1,24 +1,32 @@
-@(request: play.mvc.Http.Request, user: String)
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <title>ITSD Card Game Main Screen</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="@routes.Assets.at("css/uikit.css")" />
+        <!--suppress HtmlUnknownTarget -->
+        <link rel="stylesheet" href="/assets/css/uikit.css" />
+        <!--suppress HtmlUnknownTarget -->
+        <link rel="stylesheet" href="/assets/css/gamecursor.css" />
         
-        <script src="@routes.Assets.at("js/jquery.3.4.1.js")"></script> 
-        <script src="@routes.Assets.at("js/uikit.js")"></script>
-        <script src="@routes.Assets.at("js/uikit-icons.js")"></script>
-		<script src="@routes.Assets.at("js/hexi.min.js")"></script>
+        <!--suppress HtmlUnknownTarget -->
+        <script src="/assets/js/jquery.3.4.1.js"></script>
+        <!--suppress HtmlUnknownTarget -->
+        <script src="/assets/js/uikit.js"></script>
+        <!--suppress HtmlUnknownTarget -->
+        <script src="/assets/js/uikit-icons.js"></script>
+		<!--suppress HtmlUnknownTarget -->
+		<script src="/assets/js/hexi.min.js"></script>
 
     </head>
-    <body id="mainBody" wsdata="@routes.GameScreenController.socket.webSocketURL(request)" onload="init()">
+    <body id="mainBody">
 
 
 	
 
-	<script src="@routes.Assets.at("js/cardgame.js")"></script>
+	<div id="gameCursor" class="game-ui-cursor" aria-hidden="true"></div>
+	<!--suppress HtmlUnknownTarget -->
+	<script src="/assets/js/cardgame.js"></script>
 	<script type="text/javascript">
 	
 	// // Load them google fonts before starting...!
@@ -28,8 +36,7 @@
     	},
 
    		active: function() {
-        	// do something
-        	init();
+        	requestInit();
    		}
 	};
 	
@@ -39,10 +46,11 @@
 	
 	var ws;
 	var userDataSession;
-	var g;
-	var gameActorInitalized = false;
-	var gameStart = false;
-	var sinceLastHeartbeat = 0;
+		var g;
+		var gameActorInitalized = false;
+		var gameStart = false;
+		var sinceLastHeartbeat = 0;
+		var initStarted = false;
 	
 	// game objects
 	let boardTiles = new Map()
@@ -74,17 +82,32 @@
 	
 	let playingEffects = [];
 	
-	function init() {
-		openWebSocketConnection();
-	}
-	
-	
-	function openWebSocketConnection() {
-        var wsURL = document.getElementById("mainBody").getAttribute("wsdata");
+		function requestInit() {
+			if (initStarted) {
+				return;
+			}
 
-        //alert(wsURL);
-        ws = new WebSocket(wsURL);
-        ws.onmessage = function (event) {
+			initStarted = true;
+			openWebSocketConnection();
+		}
+
+		window.addEventListener("load", requestInit, { once: true });
+	
+	
+		function openWebSocketConnection() {
+	        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+	            return;
+	        }
+
+	        var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+	        var wsURL = protocol + "//" + window.location.host + "/gamews";
+
+	        //alert(wsURL);
+	        ws = new WebSocket(wsURL);
+	        ws.onclose = function () {
+	            ws = null;
+	        };
+	        ws.onmessage = function (event) {
             var message;
             message = JSON.parse(event.data);
 			console.log(message);
