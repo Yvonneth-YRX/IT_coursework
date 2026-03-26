@@ -11,13 +11,13 @@ import structures.board.BoardCell;
 
 public class AIController {
 
-    private static final int AI_OWNER = 2;
-    private static final int HUMAN_OWNER = 1;
+    static final int AI_OWNER = 2;
+    static final int HUMAN_OWNER = 1;
     private static final int HERO_KILL_SCORE = 100000;
     private static final int HERO_PRESSURE_SCORE = 600;
-    private static final int ACTION_ATTACK_BONUS = 120;
-    private static final int ACTION_CARD_BONUS = 80;
-    private static final int ACTION_MOVE_BONUS = 0;
+    static final int ACTION_ATTACK_BONUS = 120;
+    static final int ACTION_CARD_BONUS = 80;
+    static final int ACTION_MOVE_BONUS = 0;
     private static final int DANGER_HEALTH_THRESHOLD = 8;
     private static final int AI_MOVE_ANIMATION_WAIT_MS = 1200;
     private static final int AI_NON_MOVE_WAIT_MS = 350;
@@ -25,7 +25,7 @@ public class AIController {
     private static final int AI_MOVE_POLL_MS = 40;
     private static final int AI_POST_MOVE_SETTLE_MS = 180;
     private static final int MAX_ACTIONS_PER_TURN = 6;
-    private static final int MIN_ACTION_SCORE = 1;
+    static final int MIN_ACTION_SCORE = 1;
     private static final int BLOODMOON_PRIESTESS_SCORE = 360;
     private static final int SHADOW_WATCHER_SCORE = 300;
     private static final int PRIORITY_BLOCKER_SCORE = 170;
@@ -34,80 +34,12 @@ public class AIController {
     private static final int AI_HERO_CRITICAL_HEALTH = 4;
     private static final int AI_HERO_LOW_HEALTH = 7;
 
-    private enum ActionType {
-        ATTACK,
-        CARD,
-        MOVE
-    }
-
-    private static class ActionChoice {
-        private final ActionType type;
-        private final AttackChoice attackChoice;
-        private final CardChoice cardChoice;
-        private final MoveChoice moveChoice;
-        private final int score;
-
-        private ActionChoice(AttackChoice attackChoice) {
-            this.type = ActionType.ATTACK;
-            this.attackChoice = attackChoice;
-            this.cardChoice = null;
-            this.moveChoice = null;
-            this.score = attackChoice.score;
-        }
-
-        private ActionChoice(CardChoice cardChoice) {
-            this.type = ActionType.CARD;
-            this.attackChoice = null;
-            this.cardChoice = cardChoice;
-            this.moveChoice = null;
-            this.score = cardChoice.score;
-        }
-
-        private ActionChoice(MoveChoice moveChoice) {
-            this.type = ActionType.MOVE;
-            this.attackChoice = null;
-            this.cardChoice = null;
-            this.moveChoice = moveChoice;
-            this.score = moveChoice.score;
-        }
-    }
-
-    private static class AttackChoice {
-        private final Unit attacker;
-        private final BoardCell target;
-        private final int score;
-
-        private AttackChoice(Unit attacker, BoardCell target, int score) {
-            this.attacker = attacker;
-            this.target = target;
-            this.score = score;
-        }
-    }
-
-    private static class MoveChoice {
-        private final Unit unit;
-        private final BoardCell destination;
-        private final int score;
-
-        private MoveChoice(Unit unit, BoardCell destination, int score) {
-            this.unit = unit;
-            this.destination = destination;
-            this.score = score;
-        }
-    }
-
-    private static class CardChoice {
-        private final Card card;
-        private final BoardCell target;
-        private final int score;
-
-        private CardChoice(Card card, BoardCell target, int score) {
-            this.card = card;
-            this.target = target;
-            this.score = score;
-        }
-    }
-
+    /**
+     * Original AI entry point retained in the coursework-visible file.
+     * Planning responsibilities are delegated to {@link AIActionPlanner},
+     * while execution still happens here so the runtime flow remains easy to
+     * trace from the original controller.
+     */
     public static void takeTurn(ActorRef out, GameState gameState) {
         if (gameState.isGameOver()) return;
         if (gameState.getCurrentPlayer() != AI_OWNER) return;
@@ -125,7 +57,7 @@ public class AIController {
     private static void takeBestActions(ActorRef out, GameState gameState) throws Exception {
         int actionCount = 0;
         while (!gameState.isGameOver() && gameState.getCurrentPlayer() == AI_OWNER && actionCount < MAX_ACTIONS_PER_TURN) {
-            ActionChoice bestAction = chooseBestAction(gameState);
+            AIActionModels.ActionChoice bestAction = chooseBestAction(gameState);
             if (bestAction == null) {
                 break;
             }
@@ -165,8 +97,8 @@ public class AIController {
         }
     }
 
-    private static void waitForActionResolution(GameState gameState, ActionType actionType) throws InterruptedException {
-        if (actionType != ActionType.MOVE) {
+    private static void waitForActionResolution(GameState gameState, AIActionModels.ActionType actionType) throws InterruptedException {
+        if (actionType != AIActionModels.ActionType.MOVE) {
             Thread.sleep(AI_NON_MOVE_WAIT_MS);
             return;
         }
@@ -179,59 +111,23 @@ public class AIController {
         Thread.sleep(AI_POST_MOVE_SETTLE_MS);
     }
 
-    private static ActionChoice chooseBestAction(GameState gameState) {
-        AttackChoice bestAttack = chooseBestAttack(gameState);
-        CardChoice bestCard = chooseBestCardPlay(gameState);
-        MoveChoice bestMove = chooseBestMove(gameState);
-
-        ActionChoice bestAction = null;
-
-        if (bestAttack != null) {
-            bestAction = new ActionChoice(bestAttack);
-        }
-        if (bestCard != null && (bestAction == null || bestCard.score > bestAction.score)) {
-            bestAction = new ActionChoice(bestCard);
-        }
-        if (bestMove != null && (bestAction == null || bestMove.score > bestAction.score)) {
-            bestAction = new ActionChoice(bestMove);
-        }
-
-        if (bestAction != null && bestAction.score < MIN_ACTION_SCORE) {
-            return null;
-        }
-
-        return bestAction;
+    // Compatibility wrapper: keep the planning entry point visible in the
+    // original coursework AIController while delegating enumeration elsewhere.
+    private static AIActionModels.ActionChoice chooseBestAction(GameState gameState) {
+        return AIActionPlanner.chooseBestAction(gameState);
     }
 
-    private static CardChoice chooseBestCardPlay(GameState gameState) {
-        List<Card> handCopy = new ArrayList<>(gameState.getPlayer2Hand());
-        CardChoice bestChoice = null;
-
-        for (Card card : handCopy) {
-            if (card == null) continue;
-            if (gameState.getPlayer2().getMana() < card.getManacost()) continue;
-
-            List<BoardCell> targets = getCandidateTargets(gameState, card);
-            for (BoardCell target : targets) {
-                int score = scoreCardPlay(gameState, card, target) + ACTION_CARD_BONUS;
-                if (bestChoice == null || score > bestChoice.score) {
-                    bestChoice = new CardChoice(card, target, score);
-                }
-            }
-        }
-
-        return bestChoice;
+    // Compatibility wrapper retained here so the AI flow is still readable
+    // from the original controller file used in the template.
+    private static AIActionModels.CardChoice chooseBestCardPlay(GameState gameState) {
+        return AIActionPlanner.chooseBestCardPlay(gameState);
     }
 
     private static List<BoardCell> getCandidateTargets(GameState gameState, Card card) {
-        if (card == null) return new ArrayList<>();
-        if (card.getIsCreature()) {
-            return gameState.getValidSummonCellsForCurrentPlayer(card);
-        }
-        return gameState.getSpellTargetCellsForAI(card);
+        return AIActionPlanner.getCandidateTargets(gameState, card);
     }
 
-    private static int scoreCardPlay(GameState gameState, Card card, BoardCell target) {
+    static int scoreCardPlay(GameState gameState, Card card, BoardCell target) {
         if (card == null || target == null) return Integer.MIN_VALUE;
 
         String name = normalize(card.getCardname());
@@ -313,52 +209,17 @@ public class AIController {
         return score;
     }
 
-    private static AttackChoice chooseBestAttack(GameState gameState) {
-        AttackChoice bestAttack = null;
-        List<Unit> aiUnits = getUnitsOwnedBy(gameState, AI_OWNER);
-
-        for (Unit unit : aiUnits) {
-            if (gameState.isGameOver()) return null;
-            if (unit == null) continue;
-            if (gameState.isUnitStunned(unit)) continue;
-            if (unit.getAttack() <= 0) continue;
-
-            if (gameState.hasAttackedThisTurn(unit)) continue;
-
-            List<BoardCell> attackCells = gameState.getValidAttackCells(unit);
-            for (BoardCell target : attackCells) {
-                int score = scoreAttackTarget(gameState, unit, target) + ACTION_ATTACK_BONUS;
-                if (bestAttack == null || score > bestAttack.score) {
-                    bestAttack = new AttackChoice(unit, target, score);
-                }
-            }
-        }
-
-        return bestAttack;
+    // Compatibility wrapper retained here for the same reason as above.
+    private static AIActionModels.AttackChoice chooseBestAttack(GameState gameState) {
+        return AIActionPlanner.chooseBestAttack(gameState);
     }
 
-    private static MoveChoice chooseBestMove(GameState gameState) {
-        MoveChoice bestMove = null;
-        List<Unit> aiUnits = getUnitsOwnedBy(gameState, AI_OWNER);
-
-        for (Unit unit : aiUnits) {
-            if (unit == null) continue;
-            if (gameState.isUnitStunned(unit)) continue;
-            if (gameState.hasMovedThisTurn(unit)) continue;
-
-            List<BoardCell> moveCells = gameState.getValidMoveCells(unit);
-            for (BoardCell destination : moveCells) {
-                int score = scoreMove(gameState, unit, destination) + ACTION_MOVE_BONUS;
-                if (bestMove == null || score > bestMove.score) {
-                    bestMove = new MoveChoice(unit, destination, score);
-                }
-            }
-        }
-
-        return bestMove;
+    // Compatibility wrapper retained here for the same reason as above.
+    private static AIActionModels.MoveChoice chooseBestMove(GameState gameState) {
+        return AIActionPlanner.chooseBestMove(gameState);
     }
 
-    private static int scoreAttackTarget(GameState gameState, Unit attacker, BoardCell targetCell) {
+    static int scoreAttackTarget(GameState gameState, Unit attacker, BoardCell targetCell) {
         if (attacker == null || targetCell == null || !targetCell.isOccupied()) return Integer.MIN_VALUE;
         if (attacker.getAttack() <= 0) return Integer.MIN_VALUE;
 
@@ -549,7 +410,7 @@ public class AIController {
         return score;
     }
 
-    private static int scoreMove(GameState gameState, Unit unit, BoardCell destination) {
+    static int scoreMove(GameState gameState, Unit unit, BoardCell destination) {
         if (unit == null || destination == null) return Integer.MIN_VALUE;
 
         Unit enemyAvatar = gameState.getPlayer1Avatar();
@@ -643,7 +504,7 @@ public class AIController {
         return score;
     }
 
-    private static List<Unit> getUnitsOwnedBy(GameState gameState, int owner) {
+    static List<Unit> getUnitsOwnedBy(GameState gameState, int owner) {
         List<Unit> result = new ArrayList<>();
 
         for (BoardCell cell : gameState.getAllCells()) {
