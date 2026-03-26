@@ -27,10 +27,10 @@ public class Unit {
 	public ImageCorrection correction;
     private Card card;
 
-	// 新增：游戏逻辑属性
-	public int health = 20;      // 当前血量
-	public int maxHealth = 20;   // 最大血量
-	public int attack = 0;       // 攻击力
+	// Additional gameplay state
+	public int health = 20;      // Current health
+	public int maxHealth = 20;   // Maximum health
+	public int attack = 0;       // Attack value
 
     private boolean provoke = false;
 
@@ -105,7 +105,7 @@ public class Unit {
 		this.animations = animations;
 	}
 
-	// 新增：health 和 attack 的 getter/setter
+	// Getter/setter methods for health and attack state
 	public int getHealth() {
 		return health;
 	}
