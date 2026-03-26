@@ -6,53 +6,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <!--suppress HtmlUnknownTarget -->
         <link rel="stylesheet" href="/assets/css/uikit.css" />
-        <style>
-            /*noinspection CssUnusedSymbol */
-            #mainBody {
-                cursor: default;
-            }
-
-            #mainBody.game-cursor-active,
-            #mainBody.game-cursor-active * {
-                cursor: none !important;
-            }
-
-            .game-ui-cursor {
-                position: fixed;
-                width: 34px;
-                height: 34px;
-                left: -9999px;
-                top: -9999px;
-                pointer-events: none;
-                z-index: 9999;
-                opacity: 0;
-                transform: translate(0, 0) scale(1);
-                transform-origin: 8px 8px;
-                transition: opacity 120ms ease, transform 80ms ease;
-            }
-
-            .game-ui-cursor::before {
-                content: "";
-                position: absolute;
-                inset: 0;
-                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'%3E%3Cdefs%3E%3ClinearGradient id='blade' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fff7d6'/%3E%3Cstop offset='55%25' stop-color='%23d3b06a'/%3E%3Cstop offset='100%25' stop-color='%23724d1b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M4 4L21 12L12 21L4 4Z' fill='url(%23blade)' stroke='%23231209' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M12 21L15 30' stroke='%23f6e7bf' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='15' cy='30' r='2.1' fill='%23c18a2e' stroke='%23231209' stroke-width='1'/%3E%3C/svg%3E");
-                background-size: contain;
-                background-repeat: no-repeat;
-                filter: drop-shadow(0 0 4px rgba(255, 222, 156, 0.35));
-            }
-
-            .game-ui-cursor.visible {
-                opacity: 1;
-            }
-
-            .game-ui-cursor.active {
-                transform: scale(0.92);
-            }
-
-            .game-ui-cursor.active::before {
-                filter: drop-shadow(0 0 6px rgba(255, 228, 160, 0.55)) brightness(1.08);
-            }
-        </style>
+        <!--suppress HtmlUnknownTarget -->
+        <link rel="stylesheet" href="/assets/css/gamecursor.css" />
         
         <!--suppress HtmlUnknownTarget -->
         <script src="/assets/js/jquery.3.4.1.js"></script>
@@ -81,8 +36,7 @@
     	},
 
    		active: function() {
-        	// do something
-        	init();
+        	requestInit();
    		}
 	};
 	
@@ -92,10 +46,11 @@
 	
 	var ws;
 	var userDataSession;
-	var g;
-	var gameActorInitalized = false;
-	var gameStart = false;
-	var sinceLastHeartbeat = 0;
+		var g;
+		var gameActorInitalized = false;
+		var gameStart = false;
+		var sinceLastHeartbeat = 0;
+		var initStarted = false;
 	
 	// game objects
 	let boardTiles = new Map()
@@ -127,20 +82,32 @@
 	
 	let playingEffects = [];
 	
-	function init() {
-		openWebSocketConnection();
-	}
+		function requestInit() {
+			if (initStarted) {
+				return;
+			}
 
-	window.addEventListener("load", init);
+			initStarted = true;
+			openWebSocketConnection();
+		}
+
+		window.addEventListener("load", requestInit, { once: true });
 	
 	
-	function openWebSocketConnection() {
-        var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        var wsURL = protocol + "//" + window.location.host + "/gamews";
+		function openWebSocketConnection() {
+	        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+	            return;
+	        }
 
-        //alert(wsURL);
-        ws = new WebSocket(wsURL);
-        ws.onmessage = function (event) {
+	        var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+	        var wsURL = protocol + "//" + window.location.host + "/gamews";
+
+	        //alert(wsURL);
+	        ws = new WebSocket(wsURL);
+	        ws.onclose = function () {
+	            ws = null;
+	        };
+	        ws.onmessage = function (event) {
             var message;
             message = JSON.parse(event.data);
 			console.log(message);
